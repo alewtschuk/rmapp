@@ -14,42 +14,46 @@ import (
 // Resolver holds all the information reagarding the application's info
 type Resolver struct {
 	AppName       string // app to be deleted
-	MldsReturnStr string // full return string of the mlds command call
+	MdlsReturnStr string // full return string of the mlds command call
 	BundleID      string // app's bundle ID
-	//Finder        Finder // finder to look for files using app info
+	Finder        Finder // finder to look for files using app info
 }
 
 // Creates resolver struct and populates fields
 func NewResolver(app string) *Resolver {
 	appName := getDotApp(app)
-	mldsReturnStr := getMldsIdentifier(appName)
+	mdlsReturnStr := getMdlsIdentifier(appName)
 	resolver := &Resolver{
 		AppName:       appName,
-		MldsReturnStr: mldsReturnStr,
-		BundleID:      getBundleID(mldsReturnStr),
+		MdlsReturnStr: mdlsReturnStr,
+		BundleID:      getBundleID(mdlsReturnStr),
+		Finder:        NewFinder(appName, getBundleID((mdlsReturnStr))),
 	}
 	return resolver
 }
 
 // Calls mlds to retrieve the bundle identifier
 // and converts the bundle identifier to a string
-func getMldsIdentifier(appName string) string {
-	out, err := exec.Command("mdls", fmt.Sprintf("/Applications/%s", appName), "-name", "kMDItemCFBundleIdentifier").Output()
+func getMdlsIdentifier(appName string) string {
+	if !strings.HasPrefix(appName, "/") {
+		appName = fmt.Sprintf("/Applications/%s", appName)
+	}
+
+	out, err := exec.Command("mdls", appName, "-name", "kMDItemCFBundleIdentifier").Output()
 	if err != nil {
 		fmt.Printf("Error running mdls command: %v\n", err)
 		return ""
 	}
 	// Set full mlds output to string
-	mldsReturnStr := string(out)
+	mdlsReturnStr := string(out)
 
-	return mldsReturnStr
+	return mdlsReturnStr
 }
 
 // Takes mlds returned kMDItemCFBundleIdentifier
 // string and extracts the bundle id
-func getBundleID(mldsReturnStr string) string {
-	fmt.Println(mldsReturnStr)
-	bundleID := extractQuotedSubstring(mldsReturnStr)
+func getBundleID(mdlsReturnStr string) string {
+	bundleID := extractQuotedSubstring(mdlsReturnStr)
 
 	return bundleID
 }

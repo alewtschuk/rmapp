@@ -25,10 +25,9 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1), // Set minimum required args to 1 (app to remove)
 	Run: func(cmd *cobra.Command, args []string) {
-		appName := os.Args[1]
+		appName := args[0]
 		// Create and populate new resolver
 		resolver := rmapp.NewResolver(appName)
-		fmt.Println(resolver)
 		if verbose {
 			fmt.Println("Application to delete", appName)
 			fmt.Println("Resolved Bundle ID:", resolver.BundleID)
