@@ -13,21 +13,27 @@ import (
 
 // Resolver holds all the information reagarding the application's info
 type Resolver struct {
-	AppName       string // app to be deleted
+	AppName       string // full .app name to be deleted
 	MdlsReturnStr string // full return string of the mlds command call
 	BundleID      string // app's bundle ID
 	Finder        Finder // finder to look for files using app info
+	verbosity     bool   // is verbose flag set
 }
 
 // Creates resolver struct and populates fields
-func NewResolver(app string) *Resolver {
+func NewResolver(app string, verbose bool) *Resolver {
 	appName := getDotApp(app)
 	mdlsReturnStr := getMdlsIdentifier(appName)
+	if verbose {
+		fmt.Println("Application to delete: ", app)
+		fmt.Println("Resolved Bundle ID:", getBundleID(mdlsReturnStr), "\n")
+	}
 	resolver := &Resolver{
 		AppName:       appName,
 		MdlsReturnStr: mdlsReturnStr,
 		BundleID:      getBundleID(mdlsReturnStr),
-		Finder:        NewFinder(appName, getBundleID((mdlsReturnStr))),
+		Finder:        NewFinder(app, getBundleID((mdlsReturnStr)), verbose), // uses app name over .app to ensure propper name based searching
+		verbosity:     verbose,
 	}
 	return resolver
 }
@@ -41,7 +47,7 @@ func getMdlsIdentifier(appName string) string {
 
 	out, err := exec.Command("mdls", appName, "-name", "kMDItemCFBundleIdentifier").Output()
 	if err != nil {
-		fmt.Printf("Error running mdls command: %v\n", err)
+		fmt.Printf("App %s not found.\n", appName)
 		return ""
 	}
 	// Set full mlds output to string

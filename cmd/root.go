@@ -4,7 +4,6 @@ Copyright © 2025 Alex Lewtschuk
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/alewtschuk/rmapp/rmapp"
@@ -27,12 +26,8 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		appName := args[0]
 		// Create and populate new resolver
-		resolver := rmapp.NewResolver(appName)
-		if verbose {
-			fmt.Println("Application to delete", appName)
-			fmt.Println("Resolved Bundle ID:", resolver.BundleID)
-		}
-
+		rmapp.NewResolver(appName, verbose)
+		//fmt.Println(resolver.Finder.MatchedPaths)
 	},
 }
 
