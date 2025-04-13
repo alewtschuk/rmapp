@@ -17,6 +17,15 @@ const (
 	PREFERENCES_DEPTH int = 2
 )
 
+// ScanContext encapsulates all info needed during directory walking
+type ScanContext struct {
+	AppName     string
+	BundleID    string
+	DomainHint  string
+	SearchDepth int
+	Verbosity   bool
+}
+
 // Whole Finder struct that holds everything related to finder
 type Finder struct {
 	OSMain       OSMainPaths
@@ -45,6 +54,7 @@ type UserPaths struct {
 	CachesPath          string
 	ContainersPath      string
 	SavedStatePath      string
+	HTTPStorages        string
 }
 
 // Creates and loads a new Finder with all needed fields
@@ -56,7 +66,6 @@ func NewFinder(appName string, bundleID string, verbose bool) Finder {
 		},
 		System: SystemPaths{
 			GlobalSupportFilesPath: "/Library/Application Support",
-			//GlobalPreferencesFilesPath: "/Library/Preferences", //NOTE: Dir doesn't seem to hold user installed app data. Disabling for now
 		},
 		UserPaths: UserPaths{
 			AppSupportFilesPath: fmt.Sprintf("/Users/%s/Library/Application Support", os.Getenv("USER")),
@@ -64,6 +73,7 @@ func NewFinder(appName string, bundleID string, verbose bool) Finder {
 			CachesPath:          fmt.Sprintf("/Users/%s/Library/Caches", os.Getenv("USER")),
 			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", os.Getenv("USER")),
 			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", os.Getenv("USER")),
+			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", os.Getenv("USER")),
 		},
 		verbosity: verbose,
 	}
@@ -81,12 +91,12 @@ func (f Finder) AllSearchPaths() []string {
 		f.OSMain.RootApplicationsPath,
 		f.OSMain.UserApplicationsPath,
 		f.System.GlobalSupportFilesPath,
-		//f.System.GlobalPreferencesFilesPath, //NOTE: Dir doesn't seem to hold user installed app data. Disabling for now
 		f.UserPaths.AppSupportFilesPath,
 		f.UserPaths.PreferencesPath,
 		f.UserPaths.CachesPath,
 		f.UserPaths.ContainersPath,
 		f.UserPaths.SavedStatePath,
+		f.UserPaths.HTTPStorages,
 	}
 }
 
@@ -95,63 +105,40 @@ func (f Finder) AllSearchPaths() []string {
 //
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
-func (f *Finder) FindMatches(appname, bundleID string) ([]string, error) {
+func (f *Finder) FindMatches(appName, bundleID string) ([]string, error) {
 	var err error
 	var matches []string
-	matchesChan := make(chan string) // creates a string channel
-	wg := sync.WaitGroup{}           // new waitgroup
+	matchesChan := make(chan string)
+	wg := sync.WaitGroup{}
 
-	// Spin up a go routine for each path available to search in parallel
-	// Uses closure pattern to enable internal function to read needed vars
+	domainHint := getDomainHint(bundleID)
+
 	for _, rootPath := range f.AllSearchPaths() {
 		wg.Add(1)
-		// fmt.Println("Current path is: " + rootPath)
-		// fmt.Println("Added to waitgroup")
 
 		go func(rootPath string) {
 			defer wg.Done()
+			searchDepth := STANDARD_DEPTH
+			if rootPath == f.UserPaths.PreferencesPath {
+				searchDepth = PREFERENCES_DEPTH
+			}
+
+			ctx := ScanContext{
+				AppName:     appName,
+				BundleID:    bundleID,
+				DomainHint:  domainHint,
+				SearchDepth: searchDepth,
+				Verbosity:   f.verbosity,
+			}
+
 			err := filepath.WalkDir(rootPath, func(subPath string, d fs.DirEntry, err error) error {
-				switch rootPath {
-				// Handle main root application directories
-				case f.OSMain.RootApplicationsPath, f.OSMain.UserApplicationsPath:
-					name := d.Name()
-					relPath, _ := filepath.Rel(rootPath, subPath)
-					pathSeg := strings.Split(relPath, string(os.PathSeparator))
-					depth := len(pathSeg)
-
-					// Only handle directory as .app files are a subtype of directory
-					if d.Type().IsDir() && isMatch(name, appname, bundleID) {
-						if f.verbosity {
-							fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(subPath, 3))
-						}
-						matchesChan <- subPath // send matched path to the channel and stop traversing
-						return nil
-					}
-					if depth > STANDARD_DEPTH {
-						return fs.SkipDir
-					}
-
-				// Handle all cases where STANDARD_DEPTH = 1
-				case f.System.GlobalSupportFilesPath, f.UserPaths.AppSupportFilesPath, f.UserPaths.CachesPath, f.UserPaths.ContainersPath, f.UserPaths.SavedStatePath:
-					err := f.handleScan(d, appname, bundleID, subPath, rootPath, matchesChan, STANDARD_DEPTH)
-					if err != nil {
-						return err
-					}
-
-				// Handle case where PREFERENCES_DEPTH = 2
-				case f.UserPaths.PreferencesPath:
-					err := f.handleScan(d, appname, bundleID, subPath, rootPath, matchesChan, PREFERENCES_DEPTH)
-					if err != nil {
-						return err
-					}
-				}
-
-				return nil
+				return f.handleScan(d, subPath, rootPath, matchesChan, ctx)
 			})
+
 			if err != nil {
 				fmt.Println(" Error on path:", rootPath, err)
 			}
-		}(rootPath) // call the function with the path value
+		}(rootPath)
 	}
 
 	// Go routine to close the channel
@@ -160,7 +147,6 @@ func (f *Finder) FindMatches(appname, bundleID string) ([]string, error) {
 		close(matchesChan)
 	}()
 
-	// Read from channel and add to matches
 	for match := range matchesChan {
 		matches = append(matches, match)
 	}
@@ -168,59 +154,90 @@ func (f *Finder) FindMatches(appname, bundleID string) ([]string, error) {
 	return matches, err
 }
 
+// Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" → "thebrowser")
+func getDomainHint(bundleID string) string {
+	parts := strings.Split(bundleID, ".")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	return ""
+}
+
 // Checks if the file/directory name contains the appName or bundleID
 func isMatch(name, appName, bundleID string) bool {
 	name = strings.ToLower(name)
-	return strings.Contains(name, strings.ToLower(bundleID)) || strings.Contains(strings.ToLower(name), strings.ToLower(appName))
+	appName = strings.ToLower(appName)
+	bundleID = strings.ToLower(bundleID)
+	if strings.Contains(name, bundleID) {
+		return true
+	}
+	for _, token := range tokenize(name) {
+		if token == appName {
+			return true
+		}
+	}
+	return false
+}
+
+// Tokenize the file/directory name based on delimiters
+//
+// Mitigates incorrect matches
+func tokenize(name string) []string {
+	return strings.FieldsFunc(name, func(r rune) bool {
+		return r == '.' || r == '-' || r == '_' || r == ' ' || r == '/'
+	})
+}
+
+// Decide if a directory should be skipped based on context
+func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
+	if depth > ctx.SearchDepth {
+		return true
+	}
+	if ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth {
+		if strings.Contains(name, ctx.DomainHint) && !isMatch(name, ctx.AppName, ctx.BundleID) {
+			return true
+		}
+	}
+	return false
+}
+
+// Helper function to print and send matches
+func emitMatch(name, path string, matchesChan chan string, verbosity bool) {
+	if verbosity {
+		fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
+	}
+	matchesChan <- path
 }
 
 // Handles the files/directories if there is a match
 //
 // Sends all matches to a channel for shared goroutine communication
-func (f *Finder) handleScan(d fs.DirEntry, appName, bundleID, subPath, rootPath string, matchesChan chan string, searchDepth int) error {
-	// Handle file if regular
-	if d.Type().IsRegular() {
-		name := d.Name()
-		//fmt.Println("File name is: ", name)
-		if isMatch(name, appName, bundleID) {
-			if f.verbosity {
-				fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(subPath, 3))
-			}
-			matchesChan <- subPath // send matched path to channel and stop traversing
-			return nil
-		}
+func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan chan string, ctx ScanContext) error {
+	name := d.Name()
+
+	if d.Type().IsRegular() && isMatch(name, ctx.AppName, ctx.BundleID) {
+		emitMatch(name, subPath, matchesChan, ctx.Verbosity)
+		return nil
 	}
 
-	// Handle and skip symlink
 	if d.Type()&os.ModeSymlink != 0 {
 		return fs.SkipDir
 	}
 
-	// Handle directory
 	if d.Type().IsDir() {
-		name := d.Name()
-		relPath, _ := filepath.Rel(rootPath, subPath)
+		relPath, err := filepath.Rel(rootPath, subPath)
+		if err != nil {
+			return nil
+		}
 		pathSeg := strings.Split(relPath, string(os.PathSeparator))
 		depth := len(pathSeg)
 
-		// Check if direcotry matches
-		if isMatch(name, appName, bundleID) {
-			if f.verbosity {
-				fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(subPath, 3))
-			}
-			matchesChan <- subPath // send matched path to the channel and stop traversing
+		if isMatch(name, ctx.AppName, ctx.BundleID) {
+			emitMatch(name, subPath, matchesChan, ctx.Verbosity)
 			return nil
 		}
 
-		// Check if the searchDepth is STANDARD_DEPTH = 1 or PREFERENCES_DEPTH = 2
-		// If standard then skip all unneeded subdirs
-		if searchDepth == 1 && (depth < searchDepth && (strings.Contains(name, ".") && !isMatch(name, appName, bundleID))) {
-			//fmt.Println("Skipping . directory " + subPath + " with no match: " + name)
-			return fs.SkipDir
-		}
-
-		if depth > searchDepth {
-			//fmt.Println("Skipping directory due to depth", d.Name())
+		if shouldSkipDir(name, depth, ctx) {
 			return fs.SkipDir
 		}
 	}

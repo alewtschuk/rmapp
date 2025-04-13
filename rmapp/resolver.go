@@ -7,8 +7,11 @@ application bundle data
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/alewtschuk/pfmt"
 )
 
 // Resolver holds all the information reagarding the application's info
@@ -25,8 +28,8 @@ func NewResolver(app string, verbose bool) *Resolver {
 	appName := getDotApp(app)
 	mdlsReturnStr := getMdlsIdentifier(appName)
 	if verbose {
-		fmt.Println("Application to delete: ", app)
-		fmt.Println("Resolved Bundle ID:", getBundleID(mdlsReturnStr), "\n")
+		fmt.Println("Application to delete: ", pfmt.ApplyColor(app, 2))
+		fmt.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
 	}
 	resolver := &Resolver{
 		AppName:       appName,
@@ -47,8 +50,9 @@ func getMdlsIdentifier(appName string) string {
 
 	out, err := exec.Command("mdls", appName, "-name", "kMDItemCFBundleIdentifier").Output()
 	if err != nil {
-		fmt.Printf("App %s not found.\n", appName)
-		return ""
+		appName = strings.TrimSuffix(strings.TrimPrefix(appName, "/Applications/"), ".app")
+		fmt.Printf("App %s not found.\n", pfmt.ApplyColor(appName, 2))
+		os.Exit(0)
 	}
 	// Set full mlds output to string
 	mdlsReturnStr := string(out)
