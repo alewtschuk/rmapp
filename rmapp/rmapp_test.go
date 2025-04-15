@@ -68,3 +68,14 @@ func TestFindAppInApplicationsDir(t *testing.T) {
 		t.Errorf("Expected to find %s.app in Applications directories", appname)
 	}
 }
+
+func TestTrash(t *testing.T) {
+	path := "/Users/alexlewtschuk/Desktop/removeme"
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Skipf("Test file does not exist: %s", path)
+	}
+	success := MoveFileToTrash(path)
+	if !success {
+		t.Fatalf("Expected to successfully trash file at %s, but it failed", path)
+	}
+}

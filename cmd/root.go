@@ -4,6 +4,7 @@ Copyright © 2025 Alex Lewtschuk
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/alewtschuk/rmapp/rmapp"
@@ -24,6 +25,34 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1), // Set minimum required args to 1 (app to remove)
 	Run: func(cmd *cobra.Command, args []string) {
+		// Check if we're dealing with multiple arguments that might be an unquoted app name
+		if len(args) > 1 {
+			// Get the flags separately - any argument starting with '-'
+			flags := []string{}
+			appNameParts := []string{}
+
+			for _, arg := range args {
+				if len(arg) > 0 && arg[0] == '-' {
+					flags = append(flags, arg)
+				} else {
+					appNameParts = append(appNameParts, arg)
+				}
+			}
+
+			// Only suggest combining if we found actual app name parts
+			if len(appNameParts) > 1 {
+				fmt.Println("⚠️  Detected multiple app name arguments. Did you forget to wrap the app name in quotes?")
+				fmt.Printf("    Try: rmapp \"%s\"", joinWithSpaces(appNameParts))
+
+				// Add any flags back to the suggestion
+				for _, flag := range flags {
+					fmt.Printf(" %s", flag)
+				}
+				fmt.Println()
+				os.Exit(0)
+			}
+		}
+
 		appName := args[0]
 		// Create and populate new resolver
 		rmapp.NewResolver(appName, verbose)
@@ -38,6 +67,18 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+// Helper function to join strings with spaces
+func joinWithSpaces(parts []string) string {
+	result := ""
+	for i, part := range parts {
+		result += part
+		if i < len(parts)-1 {
+			result += " "
+		}
+	}
+	return result
 }
 
 func init() {
