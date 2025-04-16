@@ -6,12 +6,17 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/alewtschuk/rmapp/rmapp"
 	"github.com/spf13/cobra"
 )
 
-var verbose bool
+var (
+	verbose bool
+	mode    bool
+	peek    bool
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -54,9 +59,16 @@ to quickly create a Cobra application.`,
 		}
 
 		appName := args[0]
+		opts := rmapp.ResolverOptions{
+			Verbosity: verbose,
+			Mode:      mode,
+			Peek:      peek,
+		}
 		// Create and populate new resolver
-		rmapp.NewResolver(appName, verbose)
-		//fmt.Println(resolver.Finder.MatchedPaths)
+		instance := rmapp.NewResolver(appName, opts)
+		time.Sleep(50 * time.Minute)
+		instance.Deleter.Delete()
+
 	},
 }
 
@@ -90,5 +102,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
+	rootCmd.Flags().BoolVarP(&mode, "force", "f", false, "Sets program mode between Trash (Default, Safe, RECOVERABLE) and Force (Full file removal, Unsafe, UNRECOVERABLE)")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed output")
+	rootCmd.Flags().BoolVarP(&peek, "peek", "p", false, "Peek matched files")
 }

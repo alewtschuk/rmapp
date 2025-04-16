@@ -23,7 +23,6 @@ type ScanContext struct {
 	BundleID    string
 	DomainHint  string
 	SearchDepth int
-	Verbosity   bool
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -58,7 +57,7 @@ type UserPaths struct {
 }
 
 // Creates and loads a new Finder with all needed fields
-func NewFinder(appName string, bundleID string, verbose bool) Finder {
+func NewFinder(appName string, bundleID string, opts ResolverOptions) Finder {
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
@@ -75,9 +74,9 @@ func NewFinder(appName string, bundleID string, verbose bool) Finder {
 			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", os.Getenv("USER")),
 			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", os.Getenv("USER")),
 		},
-		verbosity: verbose,
+		verbosity: opts.Verbosity,
 	}
-	matches, err := finder.FindMatches(appName, bundleID)
+	matches, err := finder.FindMatches(appName, bundleID, opts)
 	if err != nil {
 		fmt.Println("NewFinder Error: ", err)
 	}
@@ -105,7 +104,7 @@ func (f Finder) AllSearchPaths() []string {
 //
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
-func (f *Finder) FindMatches(appName, bundleID string) ([]string, error) {
+func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]string, error) {
 	var err error
 	var matches []string
 	matchesChan := make(chan string)
@@ -128,11 +127,10 @@ func (f *Finder) FindMatches(appName, bundleID string) ([]string, error) {
 				BundleID:    bundleID,
 				DomainHint:  domainHint,
 				SearchDepth: searchDepth,
-				Verbosity:   f.verbosity,
 			}
 
 			err := filepath.WalkDir(rootPath, func(subPath string, d fs.DirEntry, err error) error {
-				return f.handleScan(d, subPath, rootPath, matchesChan, ctx)
+				return f.handleScan(d, subPath, rootPath, matchesChan, ctx, opts)
 			})
 
 			if err != nil {
@@ -147,8 +145,19 @@ func (f *Finder) FindMatches(appName, bundleID string) ([]string, error) {
 		close(matchesChan)
 	}()
 
+	// Append match to matches for all matches in channel
 	for match := range matchesChan {
 		matches = append(matches, match)
+	}
+
+	for _, match := range matches {
+		if opts.Peek {
+			fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(appName, 2), pfmt.ApplyColor(match, 3))
+		}
+	}
+
+	if opts.Peek {
+		os.Exit(0)
 	}
 
 	return matches, err
@@ -202,21 +211,26 @@ func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 }
 
 // Helper function to print and send matches
-func emitMatch(name, path string, matchesChan chan string, verbosity bool) {
-	if verbosity {
+func emitMatch(name, path string, matchesChan chan string, opts ResolverOptions) {
+	if opts.Verbosity {
 		fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
+
 	matchesChan <- path
 }
 
 // Handles the files/directories if there is a match
 //
 // Sends all matches to a channel for shared goroutine communication
-func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan chan string, ctx ScanContext) error {
+func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan chan string, ctx ScanContext, opts ResolverOptions) error {
 	name := d.Name()
 
 	if d.Type().IsRegular() && isMatch(name, ctx.AppName, ctx.BundleID) {
-		emitMatch(name, subPath, matchesChan, ctx.Verbosity)
+		emitMatch(name, subPath, matchesChan, opts)
+		if !opts.Peek {
+			fmt.Println()
+		}
+
 		return nil
 	}
 
@@ -233,7 +247,10 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan
 		depth := len(pathSeg)
 
 		if isMatch(name, ctx.AppName, ctx.BundleID) {
-			emitMatch(name, subPath, matchesChan, ctx.Verbosity)
+			emitMatch(name, subPath, matchesChan, opts)
+			if !opts.Peek {
+				fmt.Println()
+			}
 			return nil
 		}
 

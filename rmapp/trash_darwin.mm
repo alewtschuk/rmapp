@@ -14,7 +14,8 @@ bool MoveToTrash(const char *path) {
                         error:&error];
 
         if (!success) {
-            NSLog(@"[rmapp] Failed to move %@ to Trash: %@", filePath, error);
+            const char *errorMsg = [[error localizedDescription] UTF8String];
+            fprintf(stderr, "[rmapp] Failed to move %s to Trash\n", path);
         }
 
         return success;
