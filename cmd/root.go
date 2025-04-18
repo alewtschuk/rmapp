@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/alewtschuk/rmapp/rmapp"
 	"github.com/spf13/cobra"
@@ -66,7 +65,7 @@ to quickly create a Cobra application.`,
 		}
 		// Create and populate new resolver
 		instance := rmapp.NewResolver(appName, opts)
-		time.Sleep(50 * time.Minute)
+		//time.Sleep(50 * time.Minute)
 		instance.Deleter.Delete()
 
 	},
