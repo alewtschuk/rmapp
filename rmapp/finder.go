@@ -130,6 +130,12 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 			}
 
 			err := filepath.WalkDir(rootPath, func(subPath string, d fs.DirEntry, err error) error {
+				if err != nil {
+					if f.verbosity {
+						fmt.Fprintf(os.Stderr, "Skipping %s due to WalkDir error: %v\n", pfmt.ApplyColor(subPath, 3), err)
+					}
+					return nil // or return err if you want to stop
+				}
 				return f.handleScan(d, subPath, rootPath, matchesChan, ctx, opts)
 			})
 
@@ -156,6 +162,7 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 		}
 	}
 
+	// If --peek is enabled exit the program after showing files
 	if opts.Peek {
 		os.Exit(0)
 	}
@@ -177,9 +184,21 @@ func isMatch(name, appName, bundleID string) bool {
 	name = strings.ToLower(name)
 	appName = strings.ToLower(appName)
 	bundleID = strings.ToLower(bundleID)
+
+	// Match full bundleID anywhere in the name
 	if strings.Contains(name, bundleID) {
 		return true
 	}
+
+	// Only match exact or prefix match
+	if strings.HasSuffix(name, ".app") {
+		base := strings.TrimSuffix(name, ".app")
+		if base == appName || strings.HasPrefix(base, appName) {
+			return true
+		}
+	}
+
+	// Otherwise fallback to token check
 	for _, token := range tokenize(name) {
 		if token == appName {
 			return true
@@ -212,7 +231,7 @@ func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 
 // Helper function to print and send matches
 func emitMatch(name, path string, matchesChan chan string, opts ResolverOptions) {
-	if opts.Verbosity {
+	if opts.Verbosity && !opts.Peek {
 		fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
 
