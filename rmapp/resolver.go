@@ -22,6 +22,7 @@ type Resolver struct {
 	Finder        Finder          // finder to look for files using app info
 	Options       ResolverOptions // resolver options
 	Deleter       Deleter         // deleter struct for handling file removal
+	Peeked        bool            // resolved in peek mode
 }
 
 // Holds all command line related options
@@ -32,14 +33,14 @@ type ResolverOptions struct {
 }
 
 // Creates resolver struct and populates fields
-func NewResolver(app string, opts ResolverOptions) *Resolver {
+func NewResolver(app string, opts ResolverOptions) (*Resolver, bool) {
 	appName := getDotApp(app)
 	mdlsReturnStr := getMdlsIdentifier(appName)
 	if opts.Verbosity {
 		fmt.Println("Application to delete: ", pfmt.ApplyColor(app, 2))
 		fmt.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
 	}
-	finder := NewFinder(app, getBundleID((mdlsReturnStr)), opts) // uses app name over .app to ensure propper name based searching
+	finder, peeked := NewFinder(app, getBundleID((mdlsReturnStr)), opts) // uses app name over .app to ensure propper name based searching
 	resolver := &Resolver{
 		AppName:       appName,
 		MdlsReturnStr: mdlsReturnStr,
@@ -47,8 +48,9 @@ func NewResolver(app string, opts ResolverOptions) *Resolver {
 		Finder:        finder,
 		Options:       opts,
 		Deleter:       NewDeleter(finder.MatchedPaths, opts),
+		Peeked:        peeked,
 	}
-	return resolver
+	return resolver, peeked
 }
 
 // Calls mlds to retrieve the bundle identifier

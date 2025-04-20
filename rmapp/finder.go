@@ -57,7 +57,7 @@ type UserPaths struct {
 }
 
 // Creates and loads a new Finder with all needed fields
-func NewFinder(appName string, bundleID string, opts ResolverOptions) Finder {
+func NewFinder(appName string, bundleID string, opts ResolverOptions) (Finder, bool) {
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
@@ -76,12 +76,13 @@ func NewFinder(appName string, bundleID string, opts ResolverOptions) Finder {
 		},
 		verbosity: opts.Verbosity,
 	}
-	matches, err := finder.FindMatches(appName, bundleID, opts)
+	matches, peeked, err := finder.FindMatches(appName, bundleID, opts)
 	if err != nil {
 		fmt.Println("NewFinder Error: ", err)
 	}
+
 	finder.MatchedPaths = matches
-	return finder
+	return finder, peeked
 }
 
 // Returns a string of all available paths to search
@@ -104,7 +105,7 @@ func (f Finder) AllSearchPaths() []string {
 //
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
-func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]string, error) {
+func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]string, bool, error) {
 	var err error
 	var matches []string
 	matchesChan := make(chan string)
@@ -162,12 +163,13 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 		}
 	}
 
-	// If --peek is enabled exit the program after showing files
+	peeked := false
+	// If --peek is enabled send back signal to exit to calling function
 	if opts.Peek {
-		os.Exit(0)
+		peeked = true
 	}
 
-	return matches, err
+	return matches, peeked, err
 }
 
 // Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" → "thebrowser")

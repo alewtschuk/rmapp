@@ -64,7 +64,10 @@ to quickly create a Cobra application.`,
 			Peek:      peek,
 		}
 		// Create and populate new resolver
-		instance := rmapp.NewResolver(appName, opts)
+		instance, peeked := rmapp.NewResolver(appName, opts)
+		if peeked {
+			os.Exit(0)
+		}
 		//time.Sleep(50 * time.Minute)
 		instance.Deleter.Delete()
 

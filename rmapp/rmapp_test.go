@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -31,8 +32,11 @@ func TestWithTimeOut(t *testing.T) {
 	go func() {
 		appname := "Wireshark"
 		bundleID := "com.wireshark.Wireshark"
-		finder := NewFinder(appname, bundleID, opts)
-		matches, err := finder.FindMatches(appname, bundleID, opts)
+		finder, _ := NewFinder(appname, bundleID, opts)
+		matches, peeked, err := finder.FindMatches(appname, bundleID, opts)
+		if peeked {
+			os.Exit(0)
+		}
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -55,7 +59,7 @@ func TestFindAppInApplicationsDir(t *testing.T) {
 	}
 	appname := "Wireshark"
 	bundleID := "com.wireshark.Wireshark"
-	finder := NewFinder(appname, bundleID, opts)
+	finder, _ := NewFinder(appname, bundleID, opts)
 
 	// Only search in Applications directories
 	appPaths := []string{
@@ -129,5 +133,20 @@ func TestPeek(t *testing.T) {
 	err := d.Delete()
 	if err != nil {
 		t.Fatalf("Expected to successfully delete file at %s, but it failed", matches)
+	}
+}
+
+func TestResolver_MatchesExpectedFiles(t *testing.T) {
+	opts := ResolverOptions{Peek: true, Verbosity: false}
+	resolver, _ := NewResolver("Blender", opts)
+
+	if len(resolver.Finder.MatchedPaths) == 0 {
+		t.Errorf("Expected matches for Blender, got none")
+	}
+
+	for _, path := range resolver.Finder.MatchedPaths {
+		if !strings.Contains(path, "Blender") && !strings.Contains(path, "org.blenderfoundation.blender") {
+			t.Errorf("Unexpected match path: %s", path)
+		}
 	}
 }
