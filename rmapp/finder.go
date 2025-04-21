@@ -42,7 +42,21 @@ type OSMainPaths struct {
 
 // Directories where the system wide paths is stored
 type SystemPaths struct {
-	GlobalSupportFilesPath string
+	SystemSupportFilesPath      string
+	SystemCrashReports          string
+	SystemCaches                string
+	SystemExtensions            string
+	SystemInternetPlugIns       string
+	SystemLaunchAgents          string
+	SystemLaunchDaemons         string
+	SystemLogs                  string
+	SystemPrivilegedHelperTools string
+	SystemRecipts               string
+	SystemBin                   string
+	SystemOpt                   string
+	SystemSbin                  string
+	SystemShare                 string
+	SystemVar                   string
 	//GlobalPreferencesFilesPath string //NOTE: Dir doesn't seem to hold user installed app data. Disabling for now
 }
 
@@ -54,6 +68,12 @@ type UserPaths struct {
 	ContainersPath      string
 	SavedStatePath      string
 	HTTPStorages        string
+	GroupedContainers   string
+	InternetPlugIns     string
+	LaunchAgents        string
+	Logs                string
+	WebKit              string
+	ApplicationScripts  string
 }
 
 // Creates and loads a new Finder with all needed fields
@@ -64,7 +84,21 @@ func NewFinder(appName string, bundleID string, opts ResolverOptions) (Finder, b
 			UserApplicationsPath: fmt.Sprintf("/Users/%s/Applications", os.Getenv("USER")),
 		},
 		System: SystemPaths{
-			GlobalSupportFilesPath: "/Library/Application Support",
+			SystemSupportFilesPath:      "/Library/Application Support",
+			SystemCrashReports:          "/Library/Application Support/CrashReporter",
+			SystemCaches:                "/Library/Caches",
+			SystemExtensions:            "/Library/Extensions",
+			SystemInternetPlugIns:       "/Library/Internet Plug-Ins",
+			SystemLaunchAgents:          "/Library/LaunchAgents",
+			SystemLaunchDaemons:         "/Library/LaunchDaemons",
+			SystemLogs:                  "/Library/Logs",
+			SystemPrivilegedHelperTools: "/Library/PrivilegedHelperTools",
+			SystemRecipts:               "/private/var/db/recipts",
+			SystemBin:                   "/usr/local/bin",
+			SystemOpt:                   "/usr/local/opt",
+			SystemSbin:                  "/usr/local/sbin",
+			SystemShare:                 "/usr/local/share",
+			SystemVar:                   "/usr/local/var",
 		},
 		UserPaths: UserPaths{
 			AppSupportFilesPath: fmt.Sprintf("/Users/%s/Library/Application Support", os.Getenv("USER")),
@@ -73,6 +107,12 @@ func NewFinder(appName string, bundleID string, opts ResolverOptions) (Finder, b
 			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", os.Getenv("USER")),
 			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", os.Getenv("USER")),
 			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", os.Getenv("USER")),
+			GroupedContainers:   fmt.Sprintf("/Users/%s/Library/Grouped Containers", os.Getenv("USER")),
+			InternetPlugIns:     fmt.Sprintf("/Users/%s/Library/Internet Plug-Ins", os.Getenv("USER")),
+			LaunchAgents:        fmt.Sprintf("/Users/%s/Library/LaunchAgents", os.Getenv("USER")),
+			Logs:                fmt.Sprintf("/Users/%s/Library/Logs", os.Getenv("USER")),
+			WebKit:              fmt.Sprintf("/Users/%s/Library/WebKit", os.Getenv("USER")),
+			ApplicationScripts:  fmt.Sprintf("/Users/%s/Library/Application Scripts", os.Getenv("USER")),
 		},
 		verbosity: opts.Verbosity,
 	}
@@ -90,13 +130,22 @@ func (f Finder) AllSearchPaths() []string {
 	return []string{
 		f.OSMain.RootApplicationsPath,
 		f.OSMain.UserApplicationsPath,
-		f.System.GlobalSupportFilesPath,
+		f.System.SystemSupportFilesPath,
+		f.System.SystemCaches,
+		f.System.SystemCrashReports,
+		f.System.SystemSupportFilesPath,
 		f.UserPaths.AppSupportFilesPath,
 		f.UserPaths.PreferencesPath,
 		f.UserPaths.CachesPath,
 		f.UserPaths.ContainersPath,
 		f.UserPaths.SavedStatePath,
 		f.UserPaths.HTTPStorages,
+		f.UserPaths.GroupedContainers,
+		f.UserPaths.InternetPlugIns,
+		f.UserPaths.LaunchAgents,
+		f.UserPaths.Logs,
+		f.UserPaths.WebKit,
+		f.UserPaths.ApplicationScripts,
 	}
 }
 
@@ -107,6 +156,9 @@ func (f Finder) AllSearchPaths() []string {
 // build a string slice of matched paths that will be flagged for deletion
 func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]string, bool, error) {
 	var err error
+	var peeked bool
+	var numFiles int
+	var totalSize int64
 	var matches []string
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
@@ -158,15 +210,31 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 	}
 
 	for _, match := range matches {
+		fileInfo, err := os.Stat(match)
+		if err != nil {
+			return nil, peeked, err
+		}
+		totalSize += fileInfo.Size()
+		numFiles++
 		if opts.Peek {
-			fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(appName, 2), pfmt.ApplyColor(match, 3))
+			defer fmt.Printf("• Match %s FOUND at: %s			%s\n", pfmt.ApplyColor(appName, 2), pfmt.ApplyColor(match, 3), formatSize(fileInfo.Size()))
 		}
 	}
 
-	peeked := false
+	if opts.Peek {
+		fmt.Printf("Found %d files for %s\n", numFiles, appName)
+	}
+
+	if opts.Peek {
+		defer fmt.Printf("→ Total: %s would be freed\n\n", formatSize(totalSize))
+		defer fmt.Println("Run again without -p '--peek' to Trash files or with -f '--force' to delete files")
+	}
+
 	// If --peek is enabled send back signal to exit to calling function
 	if opts.Peek {
 		peeked = true
+	} else {
+		peeked = false
 	}
 
 	return matches, peeked, err
@@ -280,4 +348,30 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan
 		}
 	}
 	return nil
+}
+
+// formatSize takes a size in bytes and returns a human-readable string
+func formatSize(size int64) string {
+	const (
+		_          = iota
+		KB float64 = 1 << (10 * iota)
+		MB
+		GB
+		TB
+	)
+
+	floatSize := float64(size)
+
+	switch {
+	case floatSize >= TB:
+		return fmt.Sprintf("%.1f TB", floatSize/TB)
+	case floatSize >= GB:
+		return fmt.Sprintf("%.1f GB", floatSize/GB)
+	case floatSize >= MB:
+		return fmt.Sprintf("%.1f MB", floatSize/MB)
+	case floatSize >= KB:
+		return fmt.Sprintf("%.1f KB", floatSize/KB)
+	default:
+		return fmt.Sprintf("%d B", size)
+	}
 }
