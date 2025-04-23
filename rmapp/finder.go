@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -23,6 +24,16 @@ type ScanContext struct {
 	BundleID    string
 	DomainHint  string
 	SearchDepth int
+	MatchesChan chan string
+}
+
+// PeekContext encapsulates all info needed durring handling '--peek' related activities
+type PeekContext struct {
+	matches   []string
+	opts      ResolverOptions
+	totalSize int64
+	numFiles  int
+	appName   string
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -155,11 +166,12 @@ func (f Finder) AllSearchPaths() []string {
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
 func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]string, bool, error) {
-	var err error
-	var peeked bool
-	var numFiles int
-	var totalSize int64
-	var matches []string
+	var (
+		err       error
+		numFiles  int
+		totalSize int64
+		matches   []string
+	)
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
 
@@ -175,26 +187,22 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 				searchDepth = PREFERENCES_DEPTH
 			}
 
+			// Create context struct for passing context to other functions
 			ctx := ScanContext{
 				AppName:     appName,
 				BundleID:    bundleID,
 				DomainHint:  domainHint,
 				SearchDepth: searchDepth,
+				MatchesChan: matchesChan,
 			}
 
-			err := filepath.WalkDir(rootPath, func(subPath string, d fs.DirEntry, err error) error {
-				if err != nil {
-					if f.verbosity {
-						fmt.Fprintf(os.Stderr, "Skipping %s due to WalkDir error: %v\n", pfmt.ApplyColor(subPath, 3), err)
-					}
-					return nil // or return err if you want to stop
-				}
-				return f.handleScan(d, subPath, rootPath, matchesChan, ctx, opts)
-			})
-
-			if err != nil {
-				fmt.Println(" Error on path:", rootPath, err)
+			// Check if root Applications directories hold the .app
+			if rootPath == f.OSMain.RootApplicationsPath || rootPath == f.OSMain.UserApplicationsPath {
+				f.findMatchesApp(rootPath, ctx)
+				return
 			}
+			// For all other scanned directories we need to walk
+			f.findMatchesWalk(rootPath, ctx, opts)
 		}(rootPath)
 	}
 
@@ -209,35 +217,12 @@ func (f *Finder) FindMatches(appName, bundleID string, opts ResolverOptions) ([]
 		matches = append(matches, match)
 	}
 
-	for _, match := range matches {
-		fileInfo, err := os.Stat(match)
-		if err != nil {
-			return nil, peeked, err
-		}
-		totalSize += fileInfo.Size()
-		numFiles++
-		if opts.Peek {
-			defer fmt.Printf("• Match %s FOUND at: %s			%s\n", pfmt.ApplyColor(appName, 2), pfmt.ApplyColor(match, 3), formatSize(fileInfo.Size()))
-		}
-	}
-
-	if opts.Peek {
-		fmt.Printf("Found %d files for %s\n", numFiles, appName)
-	}
-
-	if opts.Peek {
-		defer fmt.Printf("→ Total: %s would be freed\n\n", formatSize(totalSize))
-		defer fmt.Println("Run again without -p '--peek' to Trash files or with -f '--force' to delete files")
-	}
-
-	// If --peek is enabled send back signal to exit to calling function
-	if opts.Peek {
-		peeked = true
-	} else {
-		peeked = false
-	}
-
-	return matches, peeked, err
+	return matches, handlePeek(matches,
+			opts,
+			totalSize,
+			numFiles,
+			appName),
+		err
 }
 
 // Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" → "thebrowser")
@@ -311,11 +296,12 @@ func emitMatch(name, path string, matchesChan chan string, opts ResolverOptions)
 // Handles the files/directories if there is a match
 //
 // Sends all matches to a channel for shared goroutine communication
-func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan chan string, ctx ScanContext, opts ResolverOptions) error {
+func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanContext, opts ResolverOptions) error {
 	name := d.Name()
 
+	// If type is a file
 	if d.Type().IsRegular() && isMatch(name, ctx.AppName, ctx.BundleID) {
-		emitMatch(name, subPath, matchesChan, opts)
+		emitMatch(name, subPath, ctx.MatchesChan, opts)
 		if !opts.Peek {
 			fmt.Println()
 		}
@@ -323,10 +309,12 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan
 		return nil
 	}
 
+	// If type is a symlink
 	if d.Type()&os.ModeSymlink != 0 {
 		return fs.SkipDir
 	}
 
+	// If type is a directory
 	if d.Type().IsDir() {
 		relPath, err := filepath.Rel(rootPath, subPath)
 		if err != nil {
@@ -336,7 +324,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, matchesChan
 		depth := len(pathSeg)
 
 		if isMatch(name, ctx.AppName, ctx.BundleID) {
-			emitMatch(name, subPath, matchesChan, opts)
+			emitMatch(name, subPath, ctx.MatchesChan, opts)
 			if !opts.Peek {
 				fmt.Println()
 			}
@@ -364,14 +352,157 @@ func formatSize(size int64) string {
 
 	switch {
 	case floatSize >= TB:
-		return fmt.Sprintf("%.1f TB", floatSize/TB)
+		return pfmt.ApplyColor(fmt.Sprintf("%.1f TB", floatSize/TB), 196)
 	case floatSize >= GB:
-		return fmt.Sprintf("%.1f GB", floatSize/GB)
+		return pfmt.ApplyColor(fmt.Sprintf("%.1f GB", floatSize/GB), 6)
 	case floatSize >= MB:
-		return fmt.Sprintf("%.1f MB", floatSize/MB)
+		return pfmt.ApplyColor(fmt.Sprintf("%.1f MB", floatSize/MB), 150)
 	case floatSize >= KB:
-		return fmt.Sprintf("%.1f KB", floatSize/KB)
+		return pfmt.ApplyColor(fmt.Sprintf("%.1f KB", floatSize/KB), 70)
 	default:
-		return fmt.Sprintf("%d B", size)
+		return pfmt.ApplyColor(fmt.Sprintf("%d B", size), 205)
+	}
+}
+
+// Strips any ANSI color codes from input string
+func stripColor(s string) string {
+	var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiEscape.ReplaceAllString(s, "")
+}
+
+// Recursively walks filepath and sums up full logical sizes of the files in the dir
+func getLogicalSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info fs.FileInfo, err error) error {
+		if err != nil {
+			// Ignore permission errors, etc.
+			return nil
+		}
+		size += info.Size()
+		return nil
+	})
+	return size, err
+}
+
+func getDiskSize(path string) int64 {
+	return GetDiskUsageAtPath(path)
+}
+
+func (f *Finder) findMatchesApp(rootPath string, ctx ScanContext) {
+	entries, err := os.ReadDir(rootPath)
+	if err == nil {
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			if isMatch(name, ctx.AppName, ctx.BundleID) {
+				ctx.MatchesChan <- filepath.Join(rootPath, name)
+			}
+		}
+	}
+}
+
+func (f *Finder) findMatchesWalk(rootPath string, ctx ScanContext, opts ResolverOptions) {
+	err := filepath.WalkDir(rootPath,
+		func(subPath string, d fs.DirEntry, err error) error {
+			if err == nil {
+				return f.handleScan(d, subPath, rootPath, ctx, opts)
+			}
+
+			if os.IsNotExist(err) && f.verbosity {
+				fmt.Fprintf(os.Stderr, "Skipped nonexistent path: %s\n", pfmt.ApplyColor(subPath, 3))
+			}
+			return nil
+		})
+
+	if err != nil {
+		fmt.Println(" Error on path:", rootPath, err)
+	}
+}
+
+// Handles '--peek' specific logic incluing
+func handlePeek(matches []string, opts ResolverOptions, totalSize int64, numFiles int, appName string) bool {
+	// pctx := PeekContext{
+	// 	matches:   matches,
+	// 	opts:      opts,
+	// 	totalSize: totalSize,
+	// 	numFiles:  numFiles,
+	// 	appName:   appName,
+	// }
+
+	// handleSize(pctx)
+
+	maxLen := 0
+	fileSizes := make(map[string]string)
+
+	// For all match in matches
+	for _, match := range matches {
+		fileInfo, err := os.Stat(match) //get info for the file
+		if err != nil {
+			return opts.Peek
+		}
+		totalSize += fileInfo.Size() // add file size info to the totalsize
+		numFiles++
+
+		// Set human readable string
+		humanSize := formatSize(fileInfo.Size())
+		fileSizes[match] = humanSize //Pair the human readable size with the path of the match
+		if len(stripColor(humanSize)) > maxLen {
+			maxLen = len(stripColor(humanSize)) //get max length minus the coloring
+		}
+	}
+
+	if opts.Peek {
+		fmt.Printf("\nFound %s files for %s\n", pfmt.ApplyColor(fmt.Sprintf("%d", numFiles), 3), appName)
+		// Holds the match metadata
+		type MatchMeta struct {
+			Path      string
+			SizeStr   string
+			PrintLine string
+		}
+
+		var metas []MatchMeta
+		maxLineWidth := 0
+
+		for _, match := range matches {
+			size := getDiskSize(match)
+			totalSize += size
+			numFiles++
+
+			sizeStr := formatSize(size)
+			appColored := pfmt.ApplyColor(appName, 2)
+			pathColored := pfmt.ApplyColor(match, 3)
+
+			printLine := fmt.Sprintf("• Match %s FOUND at: %s", appColored, pathColored)
+			printLineStripped := fmt.Sprintf("• Match %s FOUND at: %s", appName, match)
+
+			if len(printLineStripped) > maxLineWidth {
+				maxLineWidth = len(printLineStripped)
+			}
+
+			metas = append(metas, MatchMeta{
+				Path:      match,
+				SizeStr:   sizeStr,
+				PrintLine: printLine,
+			})
+		}
+
+		// Print all formatted
+		for _, meta := range metas {
+			lineStripped := stripColor(meta.PrintLine)
+			padding := maxLineWidth - len(lineStripped)
+			fmt.Printf("%s%s %s\n", meta.PrintLine, strings.Repeat(" ", padding), meta.SizeStr)
+		}
+
+		fmt.Printf("→ Total: %s would be freed\n\n", formatSize(totalSize))
+		fmt.Println("Run again without -p '--peek' to Trash files or with -f '--force' to delete files")
+	}
+
+	// If --peek is enabled send back signal to exit to calling function
+	if opts.Peek {
+		return true
+	} else {
+		return false
 	}
 }

@@ -1,7 +1,7 @@
 //go:build darwin
 
-//+ build darwin
-
+// + build darwin
+// This Go file contains all the Go code to bridge MacOS native APIs from darwin.mm
 package rmapp
 
 /*
@@ -9,9 +9,10 @@ package rmapp
 #cgo LDFLAGS: -framework Foundation
 #include <stdlib.h>
 #include <stdbool.h>
-#include "trash_darwin.mm"
+#include "darwin.mm"
 
 extern bool MoveToTrash(const char *path);
+extern long long GetFileAllocatedSize(const char *path);
 */
 import "C"
 import "unsafe"
@@ -23,4 +24,12 @@ func MoveFileToTrash(path string) bool {
 	defer C.free(unsafe.Pointer(cPath))
 
 	return bool(C.MoveToTrash(cPath))
+}
+
+// GetAllocatedFileSize returns the actual disk usage of the file in bytes
+func GetDiskUsageAtPath(path string) int64 {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+
+	return int64(C.GetDiskUsageAtPath(cPath))
 }
