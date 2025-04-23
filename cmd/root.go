@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/alewtschuk/rmapp/rmapp"
+	"github.com/alewtschuk/rmapp/options"
+	"github.com/alewtschuk/rmapp/resolver"
 	"github.com/spf13/cobra"
 )
 
@@ -58,13 +59,13 @@ to quickly create a Cobra application.`,
 		}
 
 		appName := args[0]
-		opts := rmapp.ResolverOptions{
+		opts := options.Options{
 			Verbosity: verbose,
 			Mode:      mode,
 			Peek:      peek,
 		}
 		// Create and populate new resolver
-		instance, peeked := rmapp.NewResolver(appName, opts)
+		instance, peeked := resolver.NewResolver(appName, opts)
 		if peeked {
 			os.Exit(0)
 		}

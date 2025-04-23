@@ -1,4 +1,4 @@
-package rmapp
+package deleter
 
 import (
 	"errors"
@@ -8,12 +8,14 @@ import (
 	"sync"
 
 	"github.com/alewtschuk/pfmt"
+	"github.com/alewtschuk/rmapp/darwin"
+	"github.com/alewtschuk/rmapp/options"
 )
 
 // Define the Deleter and its fields
 type Deleter struct {
 	matches []string
-	opts    ResolverOptions
+	opts    options.Options
 }
 
 // Creates and returns the Deleter
@@ -23,7 +25,7 @@ type Deleter struct {
 // - Mode FALSE is default safe trashing
 //
 // - Mode TRUE is unsafe force removal
-func NewDeleter(matches []string, opts ResolverOptions) Deleter {
+func NewDeleter(matches []string, opts options.Options) Deleter {
 	return Deleter{
 		matches: matches,
 		opts:    opts,
@@ -47,7 +49,7 @@ func (d *Deleter) Delete() error {
 					return err
 				}
 
-				success := MoveFileToTrash(match)
+				success := darwin.MoveFileToTrash(match)
 				if !success {
 					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed", 3))
 					fmt.Println("Attempting trashing via osascript...")
