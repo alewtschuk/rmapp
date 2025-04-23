@@ -1,0 +1,8 @@
+package options
+
+// Holds all command line related options
+type Options struct {
+	Verbosity bool // is verbose flag set
+	Mode      bool // sets mode between trash and delete
+	Peek      bool // sets user peeking files to true
+}

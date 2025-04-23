@@ -2,7 +2,7 @@
 
 // + build darwin
 // This Go file contains all the Go code to bridge MacOS native APIs from darwin.mm
-package rmapp
+package darwin
 
 /*
 #cgo CFLAGS: -x objective-c

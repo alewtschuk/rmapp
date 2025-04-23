@@ -1,4 +1,4 @@
-package rmapp
+package resolver
 
 import (
 	"fmt"
@@ -6,6 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/alewtschuk/rmapp/darwin"
+	"github.com/alewtschuk/rmapp/deleter"
+	"github.com/alewtschuk/rmapp/finder"
+	"github.com/alewtschuk/rmapp/options"
 )
 
 func TestGetBundle(t *testing.T) {
@@ -31,28 +36,28 @@ func makeTestFiles(n int, t *testing.T) []string {
 }
 
 func TestFinderOutput(t *testing.T) {
-	opts := ResolverOptions{
+	opts := options.Options{
 		Verbosity: true,
 		Mode:      false,
 		Peek:      false,
 	}
 	appname := "Blender"
 	bundleID := "org.blenderfoundation.blender"
-	finder, _ := NewFinder(appname, bundleID, opts)
+	finder, _ := finder.NewFinder(appname, bundleID, opts)
 	matches := finder.MatchedPaths
 	fmt.Println(matches)
 
 }
 
 func TestFindAppInApplicationsDir(t *testing.T) {
-	opts := ResolverOptions{
+	opts := options.Options{
 		Verbosity: true,
 		Mode:      false,
 		Peek:      false,
 	}
 	appname := "Blender"
 	bundleID := "org.blenderfoundation.blender"
-	finder, _ := NewFinder(appname, bundleID, opts)
+	finder, _ := finder.NewFinder(appname, bundleID, opts)
 
 	// Only search in Applications directories
 	appPaths := []string{
@@ -83,20 +88,20 @@ func TestTrash(t *testing.T) {
 	}
 	defer os.Remove(tmpFile.Name()) // clean up if trash fails
 
-	success := MoveFileToTrash(tmpFile.Name())
+	success := darwin.MoveFileToTrash(tmpFile.Name())
 	if !success {
 		t.Fatalf("Expected to trash %s", tmpFile.Name())
 	}
 }
 
 func TestMultipleDeleteSAFE(t *testing.T) {
-	opts := ResolverOptions{
+	opts := options.Options{
 		Verbosity: true,
 		Mode:      false,
 		Peek:      false,
 	}
 	matches := makeTestFiles(4, t)
-	d := NewDeleter(matches, opts)
+	d := deleter.NewDeleter(matches, opts)
 	err := d.Delete()
 	for _, path := range matches {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -109,13 +114,13 @@ func TestMultipleDeleteSAFE(t *testing.T) {
 }
 
 func TestDeleteUNSAFE(t *testing.T) {
-	opts := ResolverOptions{
+	opts := options.Options{
 		Verbosity: true,
 		Mode:      true,
 		Peek:      false,
 	}
 	matches := makeTestFiles(4, t)
-	d := NewDeleter(matches, opts)
+	d := deleter.NewDeleter(matches, opts)
 	err := d.Delete()
 	for _, path := range matches {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -128,7 +133,7 @@ func TestDeleteUNSAFE(t *testing.T) {
 }
 
 func TestResolver_MatchesExpectedFiles(t *testing.T) {
-	opts := ResolverOptions{Peek: false, Verbosity: false}
+	opts := options.Options{Peek: false, Verbosity: false}
 	resolver, _ := NewResolver("Blender", opts)
 
 	if len(resolver.Finder.MatchedPaths) == 0 {
