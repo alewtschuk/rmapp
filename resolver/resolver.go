@@ -59,7 +59,7 @@ func getMdlsIdentifier(appName string) string {
 	out, err := exec.Command("mdls", appName, "-name", "kMDItemCFBundleIdentifier").Output()
 	if err != nil {
 		appName = strings.TrimSuffix(strings.TrimPrefix(appName, "/Applications/"), ".app")
-		fmt.Printf("App %s not found.\n", pfmt.ApplyColor(appName, 2))
+		fmt.Printf("[rmapp] App %s not found.\n", pfmt.ApplyColor(appName, 2))
 		os.Exit(0)
 	}
 	// Set full mlds output to string

@@ -86,7 +86,7 @@ func (f *Finder) FindMatchesWalk(rootPath string, ctx ScanContext, opts options.
 		})
 
 	if err != nil {
-		fmt.Println(" Error on path:", rootPath, err)
+		fmt.Println("[rmapp] Error on path:", rootPath, err)
 	}
 }
 

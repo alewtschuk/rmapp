@@ -51,8 +51,8 @@ to quickly create a Cobra application.`,
 
 			// Only suggest combining if we found actual app name parts
 			if len(appNameParts) > 1 {
-				fmt.Println("⚠️  Detected multiple app name arguments. Did you forget to wrap the app name in quotes?")
-				fmt.Printf("    Try: rmapp \"%s\"", joinWithSpaces(appNameParts))
+				fmt.Println("[rmapp] ⚠️ Detected multiple app name arguments. Did you forget to wrap the app name in quotes?")
+				fmt.Printf("           Try: rmapp \"%s\"", joinWithSpaces(appNameParts))
 
 				// Add any flags back to the suggestion
 				for _, flag := range flags {
@@ -114,6 +114,7 @@ func joinWithSpaces(parts []string) string {
 
 func init() {
 	cobra.OnInitialize(getVersion)
+	cobra.OnInitialize(checkArgs)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
@@ -137,6 +138,13 @@ func init() {
 func getVersion() {
 	if versionOpt {
 		fmt.Println("rmapp version: " + version)
+		os.Exit(0)
+	}
+}
+
+func checkArgs() {
+	if peek && mode {
+		fmt.Println("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...")
 		os.Exit(0)
 	}
 }

@@ -63,7 +63,7 @@ func (d *Deleter) Delete() error {
 					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
 					err = cmd.Run()
 					fmt.Println(err)
-					fmt.Println(pfmt.ApplyColor("ERROR: file "+match+" unable to be moved to Trash", 9))
+					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
 					err = errors.New("file trashing error")
 					return err
 				}
@@ -88,7 +88,7 @@ func (d *Deleter) Delete() error {
 
 				err = os.RemoveAll(match)
 				if err != nil {
-					fmt.Println(pfmt.ApplyColor("ERROR: file "+match+" unable to be deleted", 9))
+					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be deleted", 9))
 					return err
 				}
 
@@ -118,7 +118,7 @@ func exists(match string) error {
 		fmt.Printf("File %s does not exist. Skipping...\n", pfmt.ApplyColor(match, 3))
 		return err
 	} else {
-		fmt.Println("Error:", err)
+		fmt.Println("[rmapp] Error:", err)
 		return err
 	}
 }
