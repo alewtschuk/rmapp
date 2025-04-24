@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/alewtschuk/pfmt"
 	"github.com/alewtschuk/rmapp/options"
 	"github.com/alewtschuk/rmapp/resolver"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ var (
 	verbose bool
 	mode    bool
 	peek    bool
+	logical bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -59,10 +61,21 @@ to quickly create a Cobra application.`,
 		}
 
 		appName := args[0]
-		opts := options.Options{
-			Verbosity: verbose,
-			Mode:      mode,
-			Peek:      peek,
+		var opts options.Options
+		// Enables logical file size if peek is used
+		if peek {
+			opts = options.Options{
+				Verbosity: verbose,
+				Mode:      mode,
+				Peek:      peek,
+				Logical:   logical,
+			}
+		} else {
+			opts = options.Options{
+				Verbosity: verbose,
+				Mode:      mode,
+				Peek:      peek,
+			}
 		}
 		// Create and populate new resolver
 		instance, peeked := resolver.NewResolver(appName, opts)
@@ -105,7 +118,12 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolVarP(&mode, "force", "f", false, "Sets program mode between Trash (Default, Safe, RECOVERABLE) and Force (Full file removal, Unsafe, UNRECOVERABLE)")
+	rootCmd.Flags().BoolVarP(&mode, "force", "f", false,
+		fmt.Sprintf("Sets program mode between %s and %s",
+			pfmt.ApplyColor("Trash (Default, Safe, RECOVERABLE)", 2),
+			pfmt.ApplyColor("Force (Full file removal, Unsafe, UNRECOVERABLE)", 9)),
+	)
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed output")
 	rootCmd.Flags().BoolVarP(&peek, "peek", "p", false, "Peek matched files")
+	rootCmd.Flags().BoolVarP(&logical, "logical", "l", false, "Show logical file size")
 }

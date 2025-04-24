@@ -9,6 +9,7 @@ import (
 
 	"github.com/alewtschuk/pfmt"
 	"github.com/alewtschuk/rmapp/darwin"
+	"github.com/alewtschuk/rmapp/finder"
 	"github.com/alewtschuk/rmapp/options"
 )
 
@@ -38,6 +39,12 @@ func NewDeleter(matches []string, opts options.Options) Deleter {
 func (d *Deleter) Delete() error {
 	wg := sync.WaitGroup{}
 
+	var totalSize int64
+	for _, match := range d.matches {
+		size := finder.GetDiskSize(match)
+		totalSize += size
+	}
+
 	switch d.opts.Mode {
 	case false: // default trashing behavior
 		for _, match := range d.matches {
@@ -57,7 +64,7 @@ func (d *Deleter) Delete() error {
 					err = cmd.Run()
 					fmt.Println(err)
 					fmt.Println(pfmt.ApplyColor("ERROR: file "+match+" unable to be moved to Trash", 9))
-					err = errors.New("File trashing error")
+					err = errors.New("file trashing error")
 					return err
 				}
 
@@ -94,6 +101,8 @@ func (d *Deleter) Delete() error {
 		}
 		wg.Wait() // block till all routines have returned
 	}
+
+	fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(totalSize))
 
 	return nil
 }
