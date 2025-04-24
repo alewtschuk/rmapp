@@ -52,7 +52,7 @@ func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 // Helper function to print and send matches
 func emitMatch(name, path string, matchesChan chan string, opts options.Options) {
 	if opts.Verbosity && !opts.Peek {
-		fmt.Printf("Match %s FOUND at: %s\n", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
+		fmt.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
 
 	matchesChan <- path

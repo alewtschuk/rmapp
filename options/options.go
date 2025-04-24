@@ -5,4 +5,5 @@ type Options struct {
 	Verbosity bool // is verbose flag set
 	Mode      bool // sets mode between trash and delete
 	Peek      bool // sets user peeking files to true
+	Logical   bool // sets whether the user wants logical or native disk usage size
 }

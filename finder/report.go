@@ -22,6 +22,7 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 	}
 
 	var (
+		size         int64
 		totalSize    int64
 		numFiles     int
 		maxLineWidth int
@@ -29,7 +30,11 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 	)
 
 	for _, match := range matches {
-		size := getDiskSize(match)
+		if opts.Logical {
+			size = getLogicalSize(match)
+		} else {
+			size = GetDiskSize(match)
+		}
 		totalSize += size
 		numFiles++
 

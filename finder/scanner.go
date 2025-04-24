@@ -91,19 +91,18 @@ func (f *Finder) FindMatchesWalk(rootPath string, ctx ScanContext, opts options.
 }
 
 // Recursively walks filepath and sums up full logical sizes of the files in the dir
-func getLogicalSize(path string) (int64, error) {
+func getLogicalSize(path string) int64 {
 	var size int64
-	err := filepath.Walk(path, func(_ string, info fs.FileInfo, err error) error {
-		if err != nil {
-			// Ignore permission errors, etc.
+	filepath.Walk(path, func(_ string, info fs.FileInfo, err error) error {
+		if err == nil {
+			size += info.Size()
 			return nil
 		}
-		size += info.Size()
 		return nil
 	})
-	return size, err
+	return size
 }
 
-func getDiskSize(path string) int64 {
+func GetDiskSize(path string) int64 {
 	return darwin.GetDiskUsageAtPath(path)
 }
