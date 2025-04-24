@@ -2,6 +2,7 @@ package finder
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/alewtschuk/pfmt"
@@ -13,6 +14,7 @@ type MatchMeta struct {
 	Path      string
 	SizeStr   string
 	PrintLine string
+	Size      int64
 }
 
 func GeneratePeekReport(matches []string, appName string, opts options.Options) {
@@ -53,8 +55,14 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 			Path:      match,
 			SizeStr:   sizeStr,
 			PrintLine: printLine,
+			Size:      size,
 		})
 	}
+
+	// Sort the metas by size in descending order
+	sort.SliceStable(metas, func(i, j int) bool {
+		return metas[i].Size > metas[j].Size
+	})
 
 	fmt.Printf("\nFound %s files for %s\n", pfmt.ApplyColor(fmt.Sprintf("%d", numFiles), 3), appName)
 

@@ -13,11 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "1.0"
+
 var (
-	verbose bool
-	mode    bool
-	peek    bool
-	logical bool
+	verbose    bool
+	mode       bool
+	peek       bool
+	logical    bool
+	versionOpt bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -110,6 +113,7 @@ func joinWithSpaces(parts []string) string {
 }
 
 func init() {
+	cobra.OnInitialize(getVersion)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
@@ -126,4 +130,13 @@ func init() {
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed output")
 	rootCmd.Flags().BoolVarP(&peek, "peek", "p", false, "Peek matched files")
 	rootCmd.Flags().BoolVarP(&logical, "logical", "l", false, "Show logical file size")
+	rootCmd.Flags().BoolVar(&versionOpt, "version", false, "Show rmapp version")
+}
+
+// Prints version
+func getVersion() {
+	if versionOpt {
+		fmt.Println("rmapp version: " + version)
+		os.Exit(0)
+	}
 }
