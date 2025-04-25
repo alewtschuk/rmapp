@@ -49,7 +49,7 @@ type SystemPaths struct {
 	SystemLaunchDaemons         string
 	SystemLogs                  string
 	SystemPrivilegedHelperTools string
-	SystemRecipts               string
+	SystemReceipts              string
 	SystemBin                   string
 	SystemOpt                   string
 	SystemSbin                  string
@@ -91,7 +91,7 @@ func NewFinder(appName string, bundleID string, opts options.Options) (Finder, b
 			SystemLaunchDaemons:         "/Library/LaunchDaemons",
 			SystemLogs:                  "/Library/Logs",
 			SystemPrivilegedHelperTools: "/Library/PrivilegedHelperTools",
-			SystemRecipts:               "/var/db/recipts",
+			SystemReceipts:              "/var/db/receipts",
 			SystemBin:                   "/usr/local/bin",
 			SystemOpt:                   "/usr/local/opt",
 			SystemSbin:                  "/usr/local/sbin",
@@ -137,7 +137,7 @@ func (f Finder) AllSearchPaths() []string {
 		f.System.SystemLaunchDaemons,
 		f.System.SystemLogs,
 		f.System.SystemPrivilegedHelperTools,
-		f.System.SystemRecipts,
+		f.System.SystemReceipts,
 		f.System.SystemBin,
 		f.System.SystemOpt,
 		f.System.SystemSbin,
