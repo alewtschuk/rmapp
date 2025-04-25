@@ -38,8 +38,8 @@ func NewDeleter(matches []string, opts options.Options) Deleter {
 //
 // Creates go routine for each individual match.
 func (d *Deleter) Delete() error {
+	//TODO: Implement free print only upon full success of all files
 	wg := sync.WaitGroup{}
-	var checkErr error
 
 	var totalSize int64
 	for _, match := range d.matches {
@@ -103,7 +103,6 @@ func (d *Deleter) Delete() error {
 						mu.Lock()
 						protectedPaths = append(protectedPaths, path)
 						mu.Unlock()
-						checkErr = rmErr
 						return
 					}
 					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: "+path+" could not be deleted", 9))
@@ -116,15 +115,12 @@ func (d *Deleter) Delete() error {
 
 		if len(protectedPaths) > 0 {
 			if err := RunPrivilegedDelete(protectedPaths, d.opts.Verbosity); err != nil {
-				checkErr = err
 				return err
 			}
 		}
 	}
 
-	if checkErr == nil {
-		fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(totalSize))
-	}
+	fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(totalSize))
 
 	return nil
 }
