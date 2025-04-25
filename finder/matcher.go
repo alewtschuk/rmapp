@@ -3,6 +3,7 @@ package finder
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/alewtschuk/pfmt"
 	"github.com/alewtschuk/rmapp/options"
@@ -16,6 +17,13 @@ func isMatch(name, appName, bundleID string) bool {
 
 	// Match full bundleID anywhere in the name
 	if strings.Contains(name, bundleID) {
+		return true
+	}
+
+	// Handle numeric suffix variations in bundle ID
+	// For example: com.microsoft.teams2 should match com.microsoft.teams (detected edge case)
+	bundleIDBase := strings.TrimRightFunc(bundleID, unicode.IsDigit)
+	if bundleIDBase != bundleID && strings.Contains(name, bundleIDBase) {
 		return true
 	}
 
@@ -58,7 +66,7 @@ func emitMatch(name, path string, matchesChan chan string, opts options.Options)
 	matchesChan <- path
 }
 
-// Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" → "thebrowser")
+// Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" to "thebrowser")
 func GetDomainHint(bundleID string) string {
 	parts := strings.Split(bundleID, ".")
 	if len(parts) >= 2 {

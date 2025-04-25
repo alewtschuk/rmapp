@@ -49,7 +49,7 @@ type SystemPaths struct {
 	SystemLaunchDaemons         string
 	SystemLogs                  string
 	SystemPrivilegedHelperTools string
-	SystemRecipts               string
+	SystemReceipts              string
 	SystemBin                   string
 	SystemOpt                   string
 	SystemSbin                  string
@@ -66,7 +66,7 @@ type UserPaths struct {
 	ContainersPath      string
 	SavedStatePath      string
 	HTTPStorages        string
-	GroupedContainers   string
+	GroupContainers     string
 	InternetPlugIns     string
 	LaunchAgents        string
 	Logs                string
@@ -91,7 +91,7 @@ func NewFinder(appName string, bundleID string, opts options.Options) (Finder, b
 			SystemLaunchDaemons:         "/Library/LaunchDaemons",
 			SystemLogs:                  "/Library/Logs",
 			SystemPrivilegedHelperTools: "/Library/PrivilegedHelperTools",
-			SystemRecipts:               "/private/var/db/recipts",
+			SystemReceipts:              "/var/db/receipts",
 			SystemBin:                   "/usr/local/bin",
 			SystemOpt:                   "/usr/local/opt",
 			SystemSbin:                  "/usr/local/sbin",
@@ -105,7 +105,7 @@ func NewFinder(appName string, bundleID string, opts options.Options) (Finder, b
 			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", os.Getenv("USER")),
 			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", os.Getenv("USER")),
 			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", os.Getenv("USER")),
-			GroupedContainers:   fmt.Sprintf("/Users/%s/Library/Grouped Containers", os.Getenv("USER")),
+			GroupContainers:     fmt.Sprintf("/Users/%s/Library/Group Containers", os.Getenv("USER")),
 			InternetPlugIns:     fmt.Sprintf("/Users/%s/Library/Internet Plug-Ins", os.Getenv("USER")),
 			LaunchAgents:        fmt.Sprintf("/Users/%s/Library/LaunchAgents", os.Getenv("USER")),
 			Logs:                fmt.Sprintf("/Users/%s/Library/Logs", os.Getenv("USER")),
@@ -129,16 +129,27 @@ func (f Finder) AllSearchPaths() []string {
 		f.OSMain.RootApplicationsPath,
 		f.OSMain.UserApplicationsPath,
 		f.System.SystemSupportFilesPath,
-		f.System.SystemCaches,
 		f.System.SystemCrashReports,
-		f.System.SystemSupportFilesPath,
+		f.System.SystemCaches,
+		f.System.SystemExtensions,
+		f.System.SystemInternetPlugIns,
+		f.System.SystemLaunchAgents,
+		f.System.SystemLaunchDaemons,
+		f.System.SystemLogs,
+		f.System.SystemPrivilegedHelperTools,
+		f.System.SystemReceipts,
+		f.System.SystemBin,
+		f.System.SystemOpt,
+		f.System.SystemSbin,
+		f.System.SystemShare,
+		f.System.SystemVar,
 		f.UserPaths.AppSupportFilesPath,
 		f.UserPaths.PreferencesPath,
 		f.UserPaths.CachesPath,
 		f.UserPaths.ContainersPath,
 		f.UserPaths.SavedStatePath,
 		f.UserPaths.HTTPStorages,
-		f.UserPaths.GroupedContainers,
+		f.UserPaths.GroupContainers,
 		f.UserPaths.InternetPlugIns,
 		f.UserPaths.LaunchAgents,
 		f.UserPaths.Logs,
