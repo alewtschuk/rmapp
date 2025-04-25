@@ -27,13 +27,13 @@ func FormatSize(size int64) string {
 
 	switch {
 	case floatSize >= TB:
-		return pfmt.ApplyColor(fmt.Sprintf("%.1f TB", floatSize/TB), 196)
+		return pfmt.ApplyColor(fmt.Sprintf("%.2f TB", floatSize/TB), 196)
 	case floatSize >= GB:
-		return pfmt.ApplyColor(fmt.Sprintf("%.1f GB", floatSize/GB), 6)
+		return pfmt.ApplyColor(fmt.Sprintf("%.2f GB", floatSize/GB), 6)
 	case floatSize >= MB:
-		return pfmt.ApplyColor(fmt.Sprintf("%.1f MB", floatSize/MB), 150)
+		return pfmt.ApplyColor(fmt.Sprintf("%.2f MB", floatSize/MB), 150)
 	case floatSize >= KB:
-		return pfmt.ApplyColor(fmt.Sprintf("%.1f KB", floatSize/KB), 70)
+		return pfmt.ApplyColor(fmt.Sprintf("%.2f KB", floatSize/KB), 70)
 	default:
 		return pfmt.ApplyColor(fmt.Sprintf("%d B", size), 205)
 	}
