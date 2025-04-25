@@ -58,13 +58,19 @@ func (d *Deleter) Delete() error {
 
 				success := darwin.MoveFileToTrash(match)
 				if !success {
-					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed", 3))
+					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
 					fmt.Println("Attempting trashing via osascript...")
 					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
 					err = cmd.Run()
-					fmt.Println(err)
-					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
-					err = errors.New("file trashing error")
+					if err != nil {
+						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+					}
+
+					if d.opts.Verbosity {
+						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+					}
+					//fmt.Println(err)
+					//err = errors.New("file trashing error")
 					return err
 				}
 
@@ -87,8 +93,19 @@ func (d *Deleter) Delete() error {
 				}
 
 				err = os.RemoveAll(match)
-				if err != nil {
-					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be deleted", 9))
+				if err != nil && errors.Is(err, os.ErrPermission) {
+					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
+					fmt.Println("Attempting trashing via osascript...")
+					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`do shell script "rm -rf '%s'" with administrator privileges`, match))
+					err = cmd.Run()
+					if err != nil {
+						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+					}
+
+					if d.opts.Verbosity {
+						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+					}
+				} else {
 					return err
 				}
 
