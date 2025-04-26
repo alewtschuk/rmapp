@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alewtschuk/pfmt"
 	"github.com/alewtschuk/rmapp/darwin"
 	"github.com/alewtschuk/rmapp/options"
 )
@@ -79,9 +78,9 @@ func (f *Finder) FindMatchesWalk(rootPath string, ctx ScanContext, opts options.
 				return f.handleScan(d, subPath, rootPath, ctx, opts)
 			}
 
-			if os.IsNotExist(err) && f.verbosity {
-				fmt.Fprintf(os.Stderr, "Skipped nonexistent path: %s\n", pfmt.ApplyColor(subPath, 3))
-			}
+			// if os.IsNotExist(err) && f.verbosity {
+			// 	fmt.Fprintf(os.Stderr, "Skipped nonexistent path: %s\n", pfmt.ApplyColor(subPath, 3))
+			// }
 			return nil
 		})
 
