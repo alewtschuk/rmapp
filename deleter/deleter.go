@@ -16,8 +16,18 @@ import (
 
 // Define the Deleter and its fields
 type Deleter struct {
-	matches []string
-	opts    options.Options
+	matches      []string
+	opts         options.Options
+	data         []data
+	totalDeleted int64 // actual amount of data removed
+	totalSize    int64 // total size that should be removed
+}
+
+// Define data struct
+type data struct {
+	match   string // path to file
+	size    int64  // file size
+	deleted bool   // has it been deleted
 }
 
 // Creates and returns the Deleter
@@ -41,15 +51,20 @@ func (d *Deleter) Delete() error {
 	//TODO: Implement free print only upon full success of all files
 	wg := sync.WaitGroup{}
 
-	var totalSize int64
 	for _, match := range d.matches {
 		size := finder.GetDiskSize(match)
-		totalSize += size
+		d.totalSize += size
+		data := data{
+			match:   match,
+			size:    size,
+			deleted: false,
+		}
+		d.data = append(d.data, data)
 	}
 
 	switch d.opts.Mode {
 	case false: // default trashing behavior
-		for _, match := range d.matches {
+		for idx, match := range d.matches {
 			wg.Add(1)
 			go func() error {
 				defer wg.Done()
@@ -64,16 +79,23 @@ func (d *Deleter) Delete() error {
 					fmt.Println("Attempting trashing via osascript...")
 					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
 					err = cmd.Run()
-					if err != nil {
+					if err == nil {
+						d.data[idx].deleted = true
+						d.totalDeleted += d.data[idx].size
+					} else {
 						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
 					}
 
 					if d.opts.Verbosity {
 						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
 					}
+
 					//fmt.Println(err)
 					//err = errors.New("file trashing error")
 					return err
+				} else {
+					d.data[idx].deleted = true
+					d.totalDeleted += d.data[idx].size
 				}
 
 				if d.opts.Verbosity {
@@ -89,7 +111,7 @@ func (d *Deleter) Delete() error {
 		var protectedPaths []string
 		mu := sync.Mutex{}
 
-		for _, match := range d.matches {
+		for idx, match := range d.matches {
 			wg.Add(1)
 			go func(path string) {
 				defer wg.Done()
@@ -108,19 +130,28 @@ func (d *Deleter) Delete() error {
 					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: "+path+" could not be deleted", 9))
 				} else if d.opts.Verbosity {
 					fmt.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
+				} else {
+					d.data[idx].deleted = true
+					if d.data[idx].deleted {
+						d.totalDeleted += d.data[idx].size
+					}
 				}
 			}(match)
 		}
 		wg.Wait() // block till all routines have returned
 
 		if len(protectedPaths) > 0 {
-			if err := RunPrivilegedDelete(protectedPaths, d.opts.Verbosity); err != nil {
+			if err := d.RunPrivilegedDelete(protectedPaths, d.opts.Verbosity); err != nil {
 				return err
 			}
 		}
 	}
 
-	fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(totalSize))
+	if d.totalSize != d.totalDeleted {
+		fmt.Printf("Total: %s has been freed out of %s\n\n", finder.FormatSize(d.totalDeleted), finder.FormatSize(d.totalSize))
+	} else {
+		fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(d.totalDeleted))
+	}
 
 	return nil
 }
@@ -143,23 +174,34 @@ func exists(match string) error {
 
 // RunPrivilegedDelete deletes a list of files/directories using AppleScript with elevated privileges.
 // This is used as a fallback when SIP or permissions prevent os.RemoveAll.
-func RunPrivilegedDelete(paths []string, verbose bool) error {
+func (d *Deleter) RunPrivilegedDelete(paths []string, verbose bool) error {
+
 	if len(paths) == 0 {
 		return nil
 	}
+
+	var pdata []data
 
 	fmt.Println(pfmt.ApplyColor("WARN: Some files are SIP-protected. Escalating with osascript…", 3))
 
 	var quoted []string
 	for _, path := range paths {
 		quoted = append(quoted, fmt.Sprintf("'%s'", path))
+		pdata = append(pdata, data{match: path, size: finder.GetDiskSize(path), deleted: false})
 	}
 	joined := strings.Join(quoted, " ")
 
 	cmd := exec.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "rm -rf %s" with administrator privileges`, joined))
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Run(); err == nil {
+		for idx := range pdata {
+			pdata[idx].deleted = true
+			if pdata[idx].deleted {
+				d.totalDeleted += pdata[idx].size
+			}
+		}
+	} else {
 		fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: privileged delete failed", 9))
 		return err
 	}
