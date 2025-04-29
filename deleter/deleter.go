@@ -48,7 +48,6 @@ func NewDeleter(matches []string, opts options.Options) Deleter {
 //
 // Creates go routine for each individual match.
 func (d *Deleter) Delete() error {
-	//TODO: Implement free print only upon full success of all files
 	wg := sync.WaitGroup{}
 
 	for _, match := range d.matches {
