@@ -31,12 +31,6 @@ type data struct {
 }
 
 // Creates and returns the Deleter
-//
-// # MODE definition:
-//
-// - Mode FALSE is default safe trashing
-//
-// - Mode TRUE is unsafe force removal
 func NewDeleter(matches []string, opts options.Options) Deleter {
 	return Deleter{
 		matches: matches,
