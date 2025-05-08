@@ -25,14 +25,20 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "rmapp",
-	Short: "Removes a macOS app and all associated files",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "rmapp app_name",
+	Short: "Removes specified macOS apps and thier associated files",
+	Long: `
+    ___       ___       ___       ___       ___   
+   /\  \     /\__\     /\  \     /\  \     /\  \  
+  /::\  \   /::L_L_   /::\  \   /::\  \   /::\  \ 
+ /::\:\__\ /:/L:\__\ /::\:\__\ /::\:\__\ /::\:\__\
+ \;:::/  / \/_/:/  / \/\::/  / \/\::/  / \/\::/  /
+  |:\/__/    /:/  /    /:/  /     \/__/     \/__/ 
+   \|__|     \/__/     \/__/                      
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+rmapp is a macOS app removal tool for command line and power users.
+It deletes both standard .app bundles and associated files stored elsewhere
+in your system, securely, with file size reporting, and default safe trashing.`,
 	Args: cobra.MinimumNArgs(1), // Set minimum required args to 1 (app to remove)
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if we're dealing with multiple arguments that might be an unquoted app name

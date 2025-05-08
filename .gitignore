@@ -1,9 +1,10 @@
 #MacOS
 .DS_Store
 
-#Testing
-Blender.app
+#Testing/Build
 .sh
+rmapp
+screenshots
 
 #VSCode
 .vscode
