@@ -60,7 +60,7 @@ func (d *Deleter) Delete() error {
 	case false: // default trashing behavior
 		for idx, match := range d.matches {
 			wg.Add(1)
-			go func() error {
+			go func(idx int, match string) error {
 				defer wg.Done()
 				err := exists(match)
 				if err != nil {
@@ -119,7 +119,7 @@ func (d *Deleter) Delete() error {
 				}
 
 				return nil
-			}()
+			}(idx, match)
 		}
 		wg.Wait()
 
