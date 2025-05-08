@@ -43,6 +43,7 @@ func NewDeleter(matches []string, opts options.Options) Deleter {
 // Creates go routine for each individual match.
 func (d *Deleter) Delete() error {
 	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 
 	for _, match := range d.matches {
 		size := finder.GetDiskSize(match)
@@ -66,33 +67,55 @@ func (d *Deleter) Delete() error {
 					return err
 				}
 
+				// Call native interop to move to trash and check success
 				success := darwin.MoveFileToTrash(match)
+				matchSize := d.data[idx].size
 				if !success {
 					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
 					fmt.Println("Attempting trashing via osascript...")
 					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
-					err = cmd.Run()
+					err = cmd.Run() // ensure command runs without err
+
+					// If command ran without issue and exists is not nil (file doesnt exist)
+					mu.Lock()
 					if err == nil {
-						d.data[idx].deleted = true
-						d.totalDeleted += d.data[idx].size
+						// Check if the file still exists
+						if exists(match) != nil {
+							// File was successfully deleted
+							d.data[idx].deleted = true
+							d.totalDeleted += matchSize
+							fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+						} else {
+							// File still exists
+							d.data[idx].deleted = false
+							fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+						}
 					} else {
+						// osascript failed
+						d.data[idx].deleted = false
 						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
 					}
+					mu.Unlock()
 
-					if d.opts.Verbosity {
+					//Ensure verbose output only prints if file exists
+					if d.opts.Verbosity && d.data[idx].deleted {
 						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
 					}
 
-					//fmt.Println(err)
-					//err = errors.New("file trashing error")
 					return err
 				} else {
+					mu.Lock()
 					d.data[idx].deleted = true
-					d.totalDeleted += d.data[idx].size
+					d.totalDeleted += matchSize
+					mu.Unlock()
 				}
 
 				if d.opts.Verbosity {
-					fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+					mu.Lock()
+					if d.data[idx].deleted {
+						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+					}
+					mu.Unlock()
 				}
 
 				return nil
@@ -103,11 +126,11 @@ func (d *Deleter) Delete() error {
 	case true: // -f or --force full removal enabled
 		var protectedPaths []string
 		mu := sync.Mutex{}
-
 		for idx, match := range d.matches {
 			wg.Add(1)
 			go func(path string) {
 				defer wg.Done()
+				matchSize := d.data[idx].size
 
 				if err := exists(path); err != nil {
 					return
@@ -122,12 +145,20 @@ func (d *Deleter) Delete() error {
 					}
 					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: "+path+" could not be deleted", 9))
 				} else if d.opts.Verbosity {
-					fmt.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
-				} else {
+					mu.Lock()
 					d.data[idx].deleted = true
 					if d.data[idx].deleted {
-						d.totalDeleted += d.data[idx].size
+						d.totalDeleted += matchSize
 					}
+					mu.Unlock()
+					fmt.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
+				} else {
+					mu.Lock()
+					d.data[idx].deleted = true
+					if d.data[idx].deleted {
+						d.totalDeleted += matchSize
+					}
+					mu.Unlock()
 				}
 			}(match)
 		}
@@ -149,10 +180,12 @@ func (d *Deleter) Delete() error {
 	return nil
 }
 
-// Checks if file/directory exists
+// Checks if file/directory exists.
+// Returns nil if file exists
 func exists(match string) error {
-	_, err := os.Stat(match) // explicitly used for error only
+	_, err := os.Stat(match)
 	if err == nil {
+		// File exists
 		return nil
 	}
 
@@ -168,7 +201,7 @@ func exists(match string) error {
 // RunPrivilegedDelete deletes a list of files/directories using AppleScript with elevated privileges.
 // This is used as a fallback when SIP or permissions prevent os.RemoveAll.
 func (d *Deleter) RunPrivilegedDelete(paths []string, verbose bool) error {
-
+	mu := sync.Mutex{}
 	if len(paths) == 0 {
 		return nil
 	}
@@ -184,18 +217,26 @@ func (d *Deleter) RunPrivilegedDelete(paths []string, verbose bool) error {
 	}
 	joined := strings.Join(quoted, " ")
 
+	//NOTE: Could add xargs call to the osascript to avoid input line length limit (extreme edge case, most likely will not occur)
 	cmd := exec.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "rm -rf %s" with administrator privileges`, joined))
 
 	if err := cmd.Run(); err == nil {
+		mu.Lock()
 		for idx := range pdata {
 			pdata[idx].deleted = true
 			if pdata[idx].deleted {
 				d.totalDeleted += pdata[idx].size
 			}
 		}
+		mu.Unlock()
 	} else {
 		fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: privileged delete failed", 9))
+		if d.totalSize != d.totalDeleted {
+			fmt.Printf("Total: %s has been freed out of %s\n\n", finder.FormatSize(d.totalDeleted), finder.FormatSize(d.totalSize))
+		} else {
+			fmt.Printf("Total: %s has been freed\n\n", finder.FormatSize(d.totalDeleted))
+		}
 		return err
 	}
 
