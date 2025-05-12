@@ -17,7 +17,7 @@ var version = "1.0"
 
 var (
 	verbose    bool
-	mode       bool
+	force      bool
 	peek       bool
 	logical    bool
 	versionOpt bool
@@ -75,14 +75,14 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		if peek {
 			opts = options.Options{
 				Verbosity: verbose,
-				Mode:      mode,
+				Mode:      force,
 				Peek:      peek,
 				Logical:   logical,
 			}
 		} else {
 			opts = options.Options{
 				Verbosity: verbose,
-				Mode:      mode,
+				Mode:      force,
 				Peek:      peek,
 			}
 		}
@@ -129,8 +129,8 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolVarP(&mode, "force", "f", false,
-		fmt.Sprintf("Sets program mode between %s and %s",
+	rootCmd.Flags().BoolVarP(&force, "force", "f", false,
+		fmt.Sprintf("Sets program force between %s and %s",
 			pfmt.ApplyColor("Trash (Default, Safe, RECOVERABLE)", 2),
 			pfmt.ApplyColor("Force (Full file removal, Unsafe, UNRECOVERABLE)", 9)),
 	)
@@ -148,8 +148,9 @@ func getVersion() {
 	}
 }
 
+// Checks if peeka and force is enabled, exits accordingly
 func checkArgs() {
-	if peek && mode {
+	if peek && force {
 		fmt.Println("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...")
 		os.Exit(0)
 	}
