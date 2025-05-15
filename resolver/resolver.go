@@ -49,7 +49,7 @@ func NewResolver(app string, opts options.Options) (*Resolver, bool) {
 	return resolver, peeked
 }
 
-// Calls mlds to retrieve the bundle identifier
+// Calls mdls to retrieve the bundle identifier
 // and converts the bundle identifier to a string
 func getMdlsIdentifier(appName string) string {
 	if !strings.HasPrefix(appName, "/") {

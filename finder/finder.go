@@ -171,8 +171,6 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
 
-	domainHint := GetDomainHint(bundleID)
-
 	for _, rootPath := range f.AllSearchPaths() {
 		wg.Add(1)
 
@@ -187,7 +185,7 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 			ctx := ScanContext{
 				AppName:     appName,
 				BundleID:    bundleID,
-				DomainHint:  domainHint,
+				DomainHint:  GetDomainHint(bundleID),
 				SearchDepth: searchDepth,
 				MatchesChan: matchesChan,
 			}

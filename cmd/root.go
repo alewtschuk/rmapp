@@ -13,7 +13,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.0"
+var version string = "1.0"
+var banner string = pfmt.ApplyColor(`
+
+    ___       ___       ___       ___       ___   
+   /\  \     /\__\     /\  \     /\  \     /\  \  
+  /::\  \   /::L_L_   /::\  \   /::\  \   /::\  \ 
+ /::\:\__\ /:/L:\__\ /::\:\__\ /::\:\__\ /::\:\__\
+ \;:::/  / \/_/:/  / \/\::/  / \/\::/  / \/\::/  /
+  |:\/__/    /:/  /    /:/  /     \/__/     \/__/ 
+   \|__|     \/__/     \/__/              `, 33)
 
 var (
 	verbose    bool
@@ -27,14 +36,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "rmapp app_name",
 	Short: "Removes specified macOS apps and thier associated files",
-	Long: `
-    ___       ___       ___       ___       ___   
-   /\  \     /\__\     /\  \     /\  \     /\  \  
-  /::\  \   /::L_L_   /::\  \   /::\  \   /::\  \ 
- /::\:\__\ /:/L:\__\ /::\:\__\ /::\:\__\ /::\:\__\
- \;:::/  / \/_/:/  / \/\::/  / \/\::/  / \/\::/  /
-  |:\/__/    /:/  /    /:/  /     \/__/     \/__/ 
-   \|__|     \/__/     \/__/                      
+	Long: banner + `        
 
 rmapp is a macOS app removal tool for command line and power users.
 It deletes both standard .app bundles and associated files stored elsewhere
@@ -91,7 +93,6 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		if peeked {
 			os.Exit(0)
 		}
-		//time.Sleep(50 * time.Minute)
 		instance.Deleter.Delete()
 
 	},
@@ -151,7 +152,19 @@ func getVersion() {
 // Checks if peeka and force is enabled, exits accordingly
 func checkArgs() {
 	if peek && force {
-		fmt.Println("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...")
+		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...", 9)
+		fmt.Println()
+		os.Exit(0)
+	}
+
+	if logical && force {
+		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--logical'. '--logical' can only be run in peek context. \nPlease run again with '--force' alone or '--logical' and '--peek'...", 9)
+		fmt.Println()
+		os.Exit(0)
+	}
+
+	if !peek && logical {
+		pfmt.Printcln("[rmapp] Incompatible args '--logical' must be used in '--peek' context. Please run again with '--peek' enabled...", 9)
 		os.Exit(0)
 	}
 }

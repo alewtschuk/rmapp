@@ -1,12 +1,8 @@
 package finder
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
-
-	"github.com/alewtschuk/pfmt"
-	"github.com/alewtschuk/rmapp/options"
 )
 
 // Checks if the file/directory name contains the appName or bundleID
@@ -44,29 +40,7 @@ func isMatch(name, appName, bundleID string) bool {
 	return false
 }
 
-// Decide if a directory should be skipped based on context
-func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
-	if depth > ctx.SearchDepth {
-		return true
-	}
-	if ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth {
-		if strings.Contains(name, ctx.DomainHint) && !isMatch(name, ctx.AppName, ctx.BundleID) {
-			return true
-		}
-	}
-	return false
-}
-
-// Helper function to print and send matches
-func emitMatch(name, path string, matchesChan chan string, opts options.Options) {
-	if opts.Verbosity && !opts.Peek {
-		fmt.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
-	}
-
-	matchesChan <- path
-}
-
-// Extract domain hint from bundleID (e.g. "company.thebrowser.Browser" to "thebrowser")
+// Extract domain hint from bundleID (e.g. "com.theapp.App" to "theapp")
 func GetDomainHint(bundleID string) string {
 	parts := strings.Split(bundleID, ".")
 	if len(parts) >= 2 {
