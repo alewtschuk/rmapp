@@ -45,7 +45,7 @@ in your system, securely, with file size reporting, and default safe trashing. N
 ![Peek](/readme-files/peek.png)
 
 ### Throw them into the trash
-![Peek](/readme-files/trash.gif)
+![Peek](/readme-files/trash.png)
 
 
 ## ⬇️ Installation
