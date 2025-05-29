@@ -9,13 +9,13 @@
 ![GitHub top language](https://img.shields.io/github/languages/top/alewtschuk/rmapp?style=for-the-badge&logo=go&logoColor=white&logoSize=auto&label=%20)
 ![GitHub Release](https://img.shields.io/github/v/release/alewtschuk/rmapp?style=for-the-badge)
 
+</p>
+
 
 Rmapp is a MacOS app removal tool for the command line.
 
 It deletes both standard .app bundles and associated files stored elsewhere
 in your system, securely, with file size reporting, and default safe trashing. No more drag to trash. No more artifacts.
-
-</p>
 
 **Rmapp build:**\
 ![Build](https://github.com/alewtschuk/rmapp/actions/workflows/build.yml/badge.svg)
