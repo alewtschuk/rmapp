@@ -1,5 +1,7 @@
 
 # Rmapp
+<p align="center">
+  
 [![ascii.png](https://i.postimg.cc/q7sZLMML/ascii.png)](https://postimg.cc/sB2cfzWQ)
 ![GitHub Repo stars](https://img.shields.io/github/stars/alewtschuk/rmapp?style=for-the-badge)
 ![GitHub forks](https://img.shields.io/github/forks/alewtschuk/rmapp?style=for-the-badge)
@@ -7,7 +9,7 @@
 ![GitHub top language](https://img.shields.io/github/languages/top/alewtschuk/rmapp?style=for-the-badge&logo=go&logoColor=white&logoSize=auto&label=%20)
 ![GitHub Release](https://img.shields.io/github/v/release/alewtschuk/rmapp?style=for-the-badge)
 
-<p align="center"><img src="https://img.shields.io/github/stars/alewtschuk/rmapp?style=for-the-badge" alt="shields"><img src="https://img.shields.io/github/forks/alewtschuk/rmapp?style=for-the-badge" alt="shields"><img src="https://img.shields.io/badge/MIT%20-%20license?style=for-the-badge&label=license" alt="shields"><img src="https://img.shields.io/github/languages/top/alewtschuk/rmapp?style=for-the-badge&logo=go&logoColor=white&logoSize=auto&label=%20" alt="shields"><img src="https://img.shields.io/github/v/release/alewtschuk/rmapp?style=for-the-badge" alt="shields"></p>
+</p>
 
 
 Rmapp is a MacOS app removal tool for the command line.
