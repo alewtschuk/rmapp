@@ -63,3 +63,12 @@ Rmapp offers a variety of installation options to choose from:
   cd rmapp
   go install
 ```
+
+## Contributing
+
+Pull requests are more than welcome! If you find bugs or optimizations that are needed please reach out. For major changes, please open an issue first to discuss what you’d like to change. 
+
+## License
+MIT © 2025 Alex Lewtschuk
+
+Made with ❤️ for 👫 around the 🌎
