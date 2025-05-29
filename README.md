@@ -39,12 +39,13 @@ in your system, securely, with file size reporting, and default safe trashing. N
 
 ## Demo
 ### Lets get some help
-![Help](/readme-files/help.gif)
+![Help](/readme-files/help.png)
+
 ### Peek the files associated with the app
 ![Peek](/readme-files/peek.png)
 
 ### Throw them into the trash
-![Peek](/readme-files/trash.png)
+![Peek](/readme-files/trash.gif)
 
 
 ## ⬇️ Installation
