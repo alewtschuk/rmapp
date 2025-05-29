@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin && (amd64 || arm64)
 
 // + build darwin
 // This Go file contains all the Go code to bridge MacOS native APIs from darwin.mm
