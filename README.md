@@ -38,6 +38,8 @@ in your system, securely, with file size reporting, and default safe trashing. N
 - **MORE TO COME !!! 🎉**
 
 ## Demo
+### Lets get some help
+![Help](/readme-files/help.gif)
 ### Peek the files associated with the app
 ![Peek](/readme-files/peek.png)
 
