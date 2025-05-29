@@ -1,5 +1,5 @@
 
-# Rmapp
+<h1 align="center">Rmapp</h1>
 <p align="center">
   
 ![ascii.png](/readme-files/ascii.png)
@@ -12,18 +12,18 @@
 </p>
 
 
+<p align="center">
 Rmapp is a MacOS app removal tool for the command line.
+</p>
 
+<p align="center">
 It deletes both standard .app bundles and associated files stored elsewhere
 in your system, securely, with file size reporting, and default safe trashing. No more drag to trash. No more artifacts.
+</p>
 
-**Rmapp build:**\
-![Build](https://github.com/alewtschuk/rmapp/actions/workflows/build.yml/badge.svg)
+**Rmapp build:** ![Build](https://github.com/alewtschuk/rmapp/actions/workflows/build.yml/badge.svg)
 
-**Dependancies:**\
-![Cobra](https://img.shields.io/badge/passing%20-%20passing?style=flat&logo=github&logoColor=%23969DA4&label=cobra)
-![Dsutils](https://github.com/alewtschuk/dsutils/actions/workflows/dsutils.yml/badge.svg)
-![pfmt](https://github.com/alewtschuk/pfmt/actions/workflows/pfmt.yml/badge.svg)
+**Dependancies:** ![Cobra](https://img.shields.io/badge/passing%20-%20passing?style=flat&logo=github&logoColor=%23969DA4&label=cobra) ![Dsutils](https://github.com/alewtschuk/dsutils/actions/workflows/dsutils.yml/badge.svg) ![pfmt](https://github.com/alewtschuk/pfmt/actions/workflows/pfmt.yml/badge.svg)
 
 
 
