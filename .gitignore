@@ -5,6 +5,9 @@
 .sh
 rmapp
 screenshots
+rmapp-amd64
+rmapp-arm64
+*tar.gz
 
 #VSCode
 .vscode
