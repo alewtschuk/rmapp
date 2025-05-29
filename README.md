@@ -37,6 +37,13 @@ in your system, securely, with file size reporting, and default safe trashing. N
 - 🔐 Works with MacOS System Integrity Protection(SIP) to safely remove protected files with user approval
 - **MORE TO COME !!! 🎉**
 
+## Demo
+### Peek the files associated with the app
+![Peek](/readme-files/peek.gif)
+
+### Throw them into the trash
+![Peek](/readme-files/trash.gif)
+
 
 ## ⬇️ Installation
 
