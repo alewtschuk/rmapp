@@ -2,7 +2,7 @@
 # Rmapp
 <p align="center">
   
-[![ascii.png](https://i.postimg.cc/q7sZLMML/ascii.png)](https://postimg.cc/sB2cfzWQ)
+[![ascii.png](/readme-files/ascii.png)]/readme-files/ascii.png)
 ![GitHub Repo stars](https://img.shields.io/github/stars/alewtschuk/rmapp?style=for-the-badge)
 ![GitHub forks](https://img.shields.io/github/forks/alewtschuk/rmapp?style=for-the-badge)
 ![License](https://img.shields.io/badge/MIT%20-%20license?style=for-the-badge&label=license)
