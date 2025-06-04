@@ -17,6 +17,7 @@ type MatchMeta struct {
 	Size      int64
 }
 
+// Generates the report for when program is called with --peek
 func GeneratePeekReport(matches []string, appName string, opts options.Options) {
 	if len(matches) == 0 {
 		fmt.Printf("Found 0 files for %s\n", appName)
@@ -51,12 +52,13 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 			maxLineWidth = len(printLineStripped)
 		}
 
-		metas = append(metas, MatchMeta{
-			Path:      match,
-			SizeStr:   sizeStr,
-			PrintLine: printLine,
-			Size:      size,
-		})
+		metas = append(metas,
+			MatchMeta{
+				Path:      match,
+				SizeStr:   sizeStr,
+				PrintLine: printLine,
+				Size:      size,
+			})
 	}
 
 	// Sort the metas by size in descending order
