@@ -64,6 +64,9 @@ Rmapp offers a variety of installation options to choose from:
   go install
 ```
 
+## Note
+Due to how MacOS configures and protects it's system volume, which includes many of the preinstalled MacOS applications, rmapp will not access or delete any applications within the /System/Applications directory.  
+
 ## Contributing
 
 Pull requests are more than welcome! If you find bugs or optimizations that are needed please reach out. For major changes, please open an issue first to discuss what you’d like to change. 
