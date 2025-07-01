@@ -89,8 +89,8 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 			}
 		}
 		// Create and populate new resolver
-		instance, peeked := resolver.NewResolver(appName, opts)
-		if peeked {
+		instance := resolver.NewResolver(appName, opts)
+		if opts.Peek {
 			os.Exit(0)
 		}
 		instance.Deleter.Delete()

@@ -75,7 +75,7 @@ type UserPaths struct {
 }
 
 // Creates and loads a new Finder with all needed fields
-func NewFinder(appName string, bundleID string, opts options.Options) (Finder, bool) {
+func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 	user := os.Getenv("USER")
 	finder := Finder{
 		OSMain: OSMainPaths{
@@ -115,13 +115,13 @@ func NewFinder(appName string, bundleID string, opts options.Options) (Finder, b
 		},
 		verbosity: opts.Verbosity,
 	}
-	matches, peeked, err := finder.FindMatches(appName, bundleID, opts)
+	matches, err := finder.FindMatches(appName, bundleID, opts)
 	if err != nil {
 		fmt.Println("NewFinder Error: ", err)
 	}
 
 	finder.MatchedPaths = matches
-	return finder, peeked
+	return finder
 }
 
 // Returns a string of all available paths to search
@@ -164,7 +164,7 @@ func (f Finder) AllSearchPaths() []string {
 //
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
-func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, bool, error) {
+func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, error) {
 	var (
 		err     error
 		matches []string
@@ -216,5 +216,5 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		GeneratePeekReport(matches, appName, opts)
 	}
 
-	return matches, opts.Peek, err
+	return matches, err
 }
