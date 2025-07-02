@@ -3,9 +3,7 @@ name: Release
 on:
   push:
     branches: 
-      - main
-    tags: 
-      - 'v*'
+      - test-release
 
 jobs:
   build:
@@ -46,14 +44,11 @@ jobs:
         tar -czf "$archive_name" rmapp
         echo "ARCHIVE_NAME=$archive_name" >> $GITHUB_ENV
 
-    - name: Create Release
+    - name: Simulate Release Step
       env: 
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.ref_name }}
-      run:  |
-          VERSION="${tag#v}"
-          gh release create "$tag" \
-          "$ARCHIVE_NAME" \
-          --repo="$GITHUB_REPOSITORY" \
-          --title="$VERSION" \
-          --generate-notes
+        ARCHIVE_NAME: ${{ env.ARCHIVE_NAME }}
+      run: |
+        VERSION="${tag#v}"
+        echo "Would run: gh release create \"$tag\" \"$ARCHIVE_NAME\" --title=\"$VERSION\""
+        echo "Simulating success..."
