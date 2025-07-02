@@ -24,14 +24,14 @@ jobs:
         tag: ${{ github.ref_name}}
       run: |
         VERSION="${tag#v}"
-        GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-amd64
+        GOOS=darwin CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-amd64
 
     - name: Build ARM64
       env: 
         tag: ${{ github.ref_name }}
       run: |
         VERSION="${tag#v}"
-        GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-arm64
+        GOOS=darwin CGO_ENABLED=1 GOARCH=arm64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-arm64
 
     - name: Create Universal
       run:  lipo -create -output rmapp rmapp-amd64 rmapp-arm64
