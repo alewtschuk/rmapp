@@ -62,7 +62,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 // Uses directory scanning and handling as .app bundles are a
 // specially defined directory type in MacOS, even though they contain
 // a filetype identier
-func (f *Finder) FindMatchesApp(rootPath string, ctx ScanContext) {
+func (f *Finder) FindApp(rootPath string, ctx ScanContext) {
 	entries, err := os.ReadDir(rootPath) // get all directories in the rootPath
 	if err == nil {
 		// Check each .app bundle, extract the name, check for match and send to channel
@@ -79,7 +79,7 @@ func (f *Finder) FindMatchesApp(rootPath string, ctx ScanContext) {
 }
 
 // Walks the directory, ensures theres no error, passes to handle scan for further subpath walking
-func (f *Finder) FindMatchesWalk(rootPath string, ctx ScanContext, opts options.Options) {
+func (f *Finder) FindAppFiles(rootPath string, ctx ScanContext, opts options.Options) {
 	err := filepath.WalkDir(rootPath,
 		func(subPath string, d fs.DirEntry, err error) error {
 			if err == nil {

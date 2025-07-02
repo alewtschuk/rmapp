@@ -75,11 +75,12 @@ type UserPaths struct {
 }
 
 // Creates and loads a new Finder with all needed fields
-func NewFinder(appName string, bundleID string, opts options.Options) (Finder, bool) {
+func NewFinder(appName string, bundleID string, opts options.Options) Finder {
+	user := os.Getenv("USER")
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
-			UserApplicationsPath: fmt.Sprintf("/Users/%s/Applications", os.Getenv("USER")),
+			UserApplicationsPath: fmt.Sprintf("/Users/%s/Applications", user),
 		},
 		System: SystemPaths{
 			SystemSupportFilesPath:      "/Library/Application Support",
@@ -99,28 +100,28 @@ func NewFinder(appName string, bundleID string, opts options.Options) (Finder, b
 			SystemVar:                   "/usr/local/var",
 		},
 		UserPaths: UserPaths{
-			AppSupportFilesPath: fmt.Sprintf("/Users/%s/Library/Application Support", os.Getenv("USER")),
-			PreferencesPath:     fmt.Sprintf("/Users/%s/Library/Preferences", os.Getenv("USER")),
-			CachesPath:          fmt.Sprintf("/Users/%s/Library/Caches", os.Getenv("USER")),
-			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", os.Getenv("USER")),
-			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", os.Getenv("USER")),
-			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", os.Getenv("USER")),
-			GroupContainers:     fmt.Sprintf("/Users/%s/Library/Group Containers", os.Getenv("USER")),
-			InternetPlugIns:     fmt.Sprintf("/Users/%s/Library/Internet Plug-Ins", os.Getenv("USER")),
-			LaunchAgents:        fmt.Sprintf("/Users/%s/Library/LaunchAgents", os.Getenv("USER")),
-			Logs:                fmt.Sprintf("/Users/%s/Library/Logs", os.Getenv("USER")),
-			WebKit:              fmt.Sprintf("/Users/%s/Library/WebKit", os.Getenv("USER")),
-			ApplicationScripts:  fmt.Sprintf("/Users/%s/Library/Application Scripts", os.Getenv("USER")),
+			AppSupportFilesPath: fmt.Sprintf("/Users/%s/Library/Application Support", user),
+			PreferencesPath:     fmt.Sprintf("/Users/%s/Library/Preferences", user),
+			CachesPath:          fmt.Sprintf("/Users/%s/Library/Caches", user),
+			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", user),
+			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", user),
+			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", user),
+			GroupContainers:     fmt.Sprintf("/Users/%s/Library/Group Containers", user),
+			InternetPlugIns:     fmt.Sprintf("/Users/%s/Library/Internet Plug-Ins", user),
+			LaunchAgents:        fmt.Sprintf("/Users/%s/Library/LaunchAgents", user),
+			Logs:                fmt.Sprintf("/Users/%s/Library/Logs", user),
+			WebKit:              fmt.Sprintf("/Users/%s/Library/WebKit", user),
+			ApplicationScripts:  fmt.Sprintf("/Users/%s/Library/Application Scripts", user),
 		},
 		verbosity: opts.Verbosity,
 	}
-	matches, peeked, err := finder.FindMatches(appName, bundleID, opts)
+	matches, err := finder.FindMatches(appName, bundleID, opts)
 	if err != nil {
 		fmt.Println("NewFinder Error: ", err)
 	}
 
 	finder.MatchedPaths = matches
-	return finder, peeked
+	return finder
 }
 
 // Returns a string of all available paths to search
@@ -163,7 +164,7 @@ func (f Finder) AllSearchPaths() []string {
 //
 // Internal WalkDir function passes matches to a channel which will be read from to
 // build a string slice of matched paths that will be flagged for deletion
-func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, bool, error) {
+func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, error) {
 	var (
 		err     error
 		matches []string
@@ -192,11 +193,11 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 
 			// Check if root Applications directories hold the .app
 			if rootPath == f.OSMain.RootApplicationsPath || rootPath == f.OSMain.UserApplicationsPath {
-				f.FindMatchesApp(rootPath, ctx)
+				f.FindApp(rootPath, ctx)
 				return
 			}
 			// For all other scanned directories we need to walk
-			f.FindMatchesWalk(rootPath, ctx, opts)
+			f.FindAppFiles(rootPath, ctx, opts)
 		}(rootPath)
 	}
 
@@ -215,5 +216,5 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		GeneratePeekReport(matches, appName, opts)
 	}
 
-	return matches, opts.Peek, err
+	return matches, err
 }

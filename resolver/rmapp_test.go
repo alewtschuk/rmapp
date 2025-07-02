@@ -171,8 +171,8 @@ func TestResolverWithDifferentAppNames(t *testing.T) {
 	}
 }
 
-// Testing the actual FindMatchesApp functionality
-func TestFinderFindMatchesApp(t *testing.T) {
+// Testing the actual FindApp functionality
+func TestFinderFindApp(t *testing.T) {
 	// Create a temporary directory to simulate Applications dir
 	tmpDir, err := os.MkdirTemp("", "rmapp-test-apps")
 	if err != nil {
@@ -194,7 +194,7 @@ func TestFinderFindMatchesApp(t *testing.T) {
 		}
 	}
 
-	// Test FindMatchesApp with our fake directory
+	// Test FindApp with our fake directory
 	opts := options.Options{
 		Verbosity: false,
 		Mode:      false,
@@ -224,7 +224,7 @@ func TestFinderFindMatchesApp(t *testing.T) {
 	}()
 
 	// Test with our temp directory
-	f.FindMatchesApp(tmpDir, ctx)
+	f.FindApp(tmpDir, ctx)
 
 	close(matchesChan)
 	<-done
