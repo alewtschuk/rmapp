@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version string = "1.0"
+var version string = ""
 var banner string = pfmt.ApplyColor(`
 
     ___       ___       ___       ___       ___   

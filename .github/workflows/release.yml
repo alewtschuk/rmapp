@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    branches: 
+      - main
+    tags: 
+      - 'v*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Build AMD64
+      env: 
+        tag: ${{ github.ref_name}}
+      run: |
+        VERSION="${tag#v}"
+        GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-amd64
+
+    - name: Build ARM64
+      env: 
+        tag: ${{ github.ref_name }}
+      run: |
+        VERSION="${tag#v}"
+        GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-arm64
+
+    - name: Create Universal
+      run:  lipo -create -output rmapp rmapp-amd64 rmapp-arm64
+
+    - name: Package Binary
+      env: 
+        tag: ${{ github.ref_name }}
+      run: |
+        archive_name="rmapp-${tag}-macos-universal.tar.gz"
+        tar -czf "$archive_name" rmapp
+        echo "ARCHIVE_NAME=$archive_name" >> $GITHUB_ENV
+
+    - name: Create Release
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.ref_name }}
+      run:  |
+          VERSION="${tag#v}"
+          gh release create "$tag" \
+          "$ARCHIVE_NAME" \
+          --repo="$GITHUB_REPOSITORY" \
+          --title="$VERSION" \
+          --generate-notes
