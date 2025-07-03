@@ -2,14 +2,12 @@ name: Release
 
 on:
   push:
-    branches: 
-      - main
     tags: 
       - 'v*'
 
 jobs:
   build:
-    name: Build
+    name: Release
     runs-on: macos-latest
 
     steps:
@@ -26,14 +24,14 @@ jobs:
         tag: ${{ github.ref_name}}
       run: |
         VERSION="${tag#v}"
-        GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-amd64
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-amd64
 
     - name: Build ARM64
       env: 
         tag: ${{ github.ref_name }}
       run: |
         VERSION="${tag#v}"
-        GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-arm64
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags "-X github.com/alewtschuk/rmapp/cmd.version=$VERSION" -o rmapp-arm64
 
     - name: Create Universal
       run:  lipo -create -output rmapp rmapp-amd64 rmapp-arm64
@@ -57,3 +55,30 @@ jobs:
           --repo="$GITHUB_REPOSITORY" \
           --title="$VERSION" \
           --generate-notes
+
+    - name: Generate SHA256
+      id: checksum
+      run: |
+          SHA256=$(shasum -a 256 "$ARCHIVE_NAME" | awk '{ print $1 }')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+      
+    - name: Update Formula
+      env: 
+        HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        VERSION: ${{ github.ref_name }}
+        SHA256: ${{ steps.checksum.outputs.sha256 }}
+      run: |
+          git clone https://x-access-token:$HOMEBREW_TOKEN@github.com/alewtschuk/homebrew-formulae.git
+          cd homebrew-formulae
+
+          FORMULA_FILE=Formula/rmapp.rb
+          TAG="${VERSION#v}"
+          URL="https://github.com/alewtschuk/rmapp/releases/download/${VERSION}/rmapp-${VERSION}-macos-universal.tar.gz"
+
+          sed -i '' "s|url \".*\"|url \"$URL\"|" "$FORMULA_FILE"
+          sed -i '' "s|sha256 \".*\"|sha256 \"$SHA256\"|" "$FORMULA_FILE"
+
+          git config user.name "GitHub Action"
+          git config user.email "actions@github.com"
+          git commit -am "rmapp: update to ${VERSION}"
+          git push origin main
