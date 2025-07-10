@@ -46,7 +46,7 @@ func TestFinderOutput(t *testing.T) {
 	}
 	appname := "Blender"
 	bundleID := "org.blenderfoundation.blender"
-	finder, _ := finder.NewFinder(appname, bundleID, opts)
+	finder := finder.NewFinder(appname, bundleID, opts)
 	matches := finder.MatchedPaths
 	fmt.Println(matches)
 
@@ -110,9 +110,9 @@ func TestResolverWithPeekMode(t *testing.T) {
 		Logical:   true,
 	}
 
-	resolver, peeked := NewResolver("Blender", opts)
+	resolver := NewResolver("Blender", opts)
 
-	if !peeked {
+	if !opts.Peek {
 		t.Error("Expected peeked=true with peek=true")
 	}
 
@@ -145,7 +145,7 @@ func TestResolverWithDifferentAppNames(t *testing.T) {
 				Peek:      true,
 			}
 
-			resolver, _ := NewResolver(app, opts)
+			resolver := NewResolver(app, opts)
 
 			if resolver.AppName != app+".app" {
 				t.Errorf("Expected AppName=%s.app, got %s", app, resolver.AppName)
@@ -201,7 +201,7 @@ func TestFinderFindApp(t *testing.T) {
 		Peek:      true,
 	}
 
-	f, _ := finder.NewFinder("TestApp", "com.test.app", opts)
+	f := finder.NewFinder("TestApp", "com.test.app", opts)
 
 	// Create a ScanContext
 	matchesChan := make(chan string)
@@ -252,10 +252,10 @@ func TestResolverWithDotApp(t *testing.T) {
 	}
 
 	// Test with an app name that already has .app extension
-	resolver1, _ := NewResolver("Blender.app", opts)
+	resolver1 := NewResolver("Blender.app", opts)
 
 	// Compare with normal usage
-	resolver2, _ := NewResolver("Blender", opts)
+	resolver2 := NewResolver("Blender", opts)
 
 	// Both should produce the same AppName
 	if resolver1.AppName != resolver2.AppName {
@@ -323,7 +323,7 @@ func TestDeleteUNSAFE(t *testing.T) {
 
 func TestResolver_MatchesExpectedFiles(t *testing.T) {
 	opts := options.Options{Peek: false, Verbosity: false}
-	resolver, _ := NewResolver("Blender", opts)
+	resolver := NewResolver("Blender", opts)
 
 	if len(resolver.Finder.MatchedPaths) == 0 {
 		t.Errorf("Expected matches for Blender, got none")
