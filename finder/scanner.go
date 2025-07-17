@@ -17,10 +17,11 @@ import (
 // Sends all matches to a channel for shared goroutine communication
 func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanContext, opts options.Options) error {
 	name := d.Name()
+	symlink := false
 
 	// If type is a file
 	if d.Type().IsRegular() && isMatch(name, ctx.AppName, ctx.BundleID) {
-		f.emitMatch(name, subPath, ctx.MatchesChan, opts)
+		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 		if !opts.Peek {
 			fmt.Println()
 		}
@@ -28,9 +29,16 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 		return nil
 	}
 
-	// If type is a symlink
-	if d.Type()&os.ModeSymlink != 0 {
-		return fs.SkipDir
+	// If type is a symlink check symlink bit and if symlink contains match hueristics emit match
+	// Used to prevent dangling symlinks
+	if d.Type()&os.ModeSymlink != 0 && isMatch(name, ctx.AppName, ctx.BundleID) {
+		symlink := true
+		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
+		if !opts.Peek {
+			fmt.Println()
+		}
+
+		return nil
 	}
 
 	// If type is a directory
@@ -43,11 +51,11 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 		depth := len(pathSeg)
 
 		if isMatch(name, ctx.AppName, ctx.BundleID) {
-			f.emitMatch(name, subPath, ctx.MatchesChan, opts)
+			f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 			if !opts.Peek {
 				fmt.Println()
 			}
-			return nil
+			return fs.SkipDir
 		}
 
 		if shouldSkipDir(name, depth, ctx) {
@@ -120,18 +128,18 @@ func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 	if depth > ctx.SearchDepth {
 		return true
 	}
-	if ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth {
-		if strings.Contains(name, ctx.DomainHint) && !isMatch(name, ctx.AppName, ctx.BundleID) {
-			return true
-		}
+	if (ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth) && (strings.Contains(name, ctx.DomainHint) && !isMatch(name, ctx.AppName, ctx.BundleID)) {
+		return true
 	}
 	return false
 }
 
 // Helper function to print and send matches to channel
-func (f *Finder) emitMatch(name, path string, matchesChan chan string, opts options.Options) {
-	if opts.Verbosity && !opts.Peek {
+func (f *Finder) emitMatch(name, path string, matchesChan chan string, opts options.Options, symlink bool) {
+	if opts.Verbosity && !opts.Peek && !symlink {
 		fmt.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
+	} else if opts.Verbosity && !opts.Peek && symlink {
+		fmt.Printf("Symlink match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
 
 	matchesChan <- path
