@@ -21,6 +21,7 @@ type ScanContext struct {
 	DomainHint  string
 	SearchDepth int
 	MatchesChan chan string
+	RootPath    string
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -193,6 +194,7 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 				DomainHint:  GetDomainHint(bundleID),
 				SearchDepth: searchDepth,
 				MatchesChan: matchesChan,
+				RootPath:    rootPath,
 			}
 
 			// Check if root Applications directories hold the .app
@@ -201,6 +203,9 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 				return
 			}
 			// For all other scanned directories we need to walk
+			if rootPath == f.System.SystemReceipts {
+				fmt.Println("Current Directory: " + rootPath)
+			}
 			f.FindAppFiles(rootPath, ctx, opts)
 		}(rootPath)
 	}

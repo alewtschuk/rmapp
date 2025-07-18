@@ -20,7 +20,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 	symlink := false
 
 	// If type is a file
-	if d.Type().IsRegular() && isMatch(name, ctx.AppName, ctx.BundleID) {
+	if d.Type().IsRegular() && f.isMatch(name, ctx) {
 		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 		if !opts.Peek {
 			fmt.Println()
@@ -31,7 +31,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 
 	// If type is a symlink check symlink bit and if symlink contains match hueristics emit match
 	// Used to prevent dangling symlinks
-	if d.Type()&os.ModeSymlink != 0 && isMatch(name, ctx.AppName, ctx.BundleID) {
+	if d.Type()&os.ModeSymlink != 0 && f.isMatch(name, ctx) {
 		symlink := true
 		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 		if !opts.Peek {
@@ -50,7 +50,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 		pathSeg := strings.Split(relPath, string(os.PathSeparator))
 		depth := len(pathSeg)
 
-		if isMatch(name, ctx.AppName, ctx.BundleID) {
+		if f.isMatch(name, ctx) {
 			f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 			if !opts.Peek {
 				fmt.Println()
@@ -58,28 +58,28 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 			return fs.SkipDir
 		}
 
-		if shouldSkipDir(name, depth, ctx) {
+		if f.shouldSkipDir(name, depth, ctx) {
 			return fs.SkipDir
 		}
 	}
 	return nil
 }
 
-// Checks if the rootPath contains the .app bundle.
+// Checks if the rootPath /Applications or ~/Applications contains the .app bundle.
 //
 // Uses directory scanning and handling as .app bundles are a
 // specially defined directory type in MacOS, even though they contain
 // a filetype identier
 func (f *Finder) FindApp(rootPath string, ctx ScanContext) {
-	entries, err := os.ReadDir(rootPath) // get all directories in the rootPath
+	applications, err := os.ReadDir(rootPath) // get all directories in the rootPath
 	if err == nil {
 		// Check each .app bundle, extract the name, check for match and send to channel
-		for _, e := range entries {
-			if !e.IsDir() {
+		for _, app := range applications {
+			if !app.IsDir() {
 				continue
 			}
-			name := e.Name()
-			if isMatch(name, ctx.AppName, ctx.BundleID) {
+			name := app.Name()
+			if f.isMatch(name, ctx) {
 				ctx.MatchesChan <- filepath.Join(rootPath, name) // send full path for the channel
 			}
 		}
@@ -88,6 +88,9 @@ func (f *Finder) FindApp(rootPath string, ctx ScanContext) {
 
 // Walks the directory, ensures theres no error, passes to handle scan for further subpath walking
 func (f *Finder) FindAppFiles(rootPath string, ctx ScanContext, opts options.Options) {
+	if ctx.RootPath == f.System.SystemReceipts {
+		fmt.Println("Entered " + f.System.SystemReceipts)
+	}
 	err := filepath.WalkDir(rootPath,
 		func(subPath string, d fs.DirEntry, err error) error {
 			if err == nil {
@@ -97,6 +100,7 @@ func (f *Finder) FindAppFiles(rootPath string, ctx ScanContext, opts options.Opt
 			// if os.IsNotExist(err) && f.verbosity {
 			// 	fmt.Fprintf(os.Stderr, "Skipped nonexistent path: %s\n", pfmt.ApplyColor(subPath, 3))
 			// }
+
 			return nil
 		})
 
@@ -124,11 +128,11 @@ func GetDiskSize(path string) int64 {
 }
 
 // Decide if a directory should be skipped based on context
-func shouldSkipDir(name string, depth int, ctx ScanContext) bool {
+func (f Finder) shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 	if depth > ctx.SearchDepth {
 		return true
 	}
-	if (ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth) && (strings.Contains(name, ctx.DomainHint) && !isMatch(name, ctx.AppName, ctx.BundleID)) {
+	if (ctx.SearchDepth == STANDARD_DEPTH && depth < ctx.SearchDepth) && (strings.Contains(name, ctx.DomainHint) && !f.isMatch(name, ctx)) {
 		return true
 	}
 	return false
