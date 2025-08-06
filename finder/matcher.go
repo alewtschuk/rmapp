@@ -11,11 +11,6 @@ func (f Finder) isMatch(filename string, ctx ScanContext) bool {
 	appName := strings.ToLower(ctx.AppName)
 	bundleID := strings.ToLower(ctx.BundleID)
 
-	// appNameTokenzied := tokenize(appName)
-	// ttoken := []string{"microsoft", "excel"}
-
-	// fmt.Println(slices.Equal(ttoken, appNameTokenzied))
-
 	// Match full bundleID anywhere in the filename
 	if strings.Contains(filename, bundleID) {
 		return true

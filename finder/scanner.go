@@ -32,7 +32,7 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 	// If type is a symlink check symlink bit and if symlink contains match hueristics emit match
 	// Used to prevent dangling symlinks
 	if d.Type()&os.ModeSymlink != 0 && f.isMatch(name, ctx) {
-		symlink := true
+		symlink = true
 		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
 		if !opts.Peek {
 			fmt.Println()
