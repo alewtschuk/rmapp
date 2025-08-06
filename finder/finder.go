@@ -21,6 +21,7 @@ type ScanContext struct {
 	DomainHint  string
 	SearchDepth int
 	MatchesChan chan string
+	RootPath    string
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -78,7 +79,6 @@ type UserPaths struct {
 func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 	// Extract home directory for use in user identification if ran as sudo
 	home := os.Getenv("HOME")
-	fmt.Printf("Current HOME: %s\n", home)
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
@@ -193,6 +193,7 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 				DomainHint:  GetDomainHint(bundleID),
 				SearchDepth: searchDepth,
 				MatchesChan: matchesChan,
+				RootPath:    rootPath,
 			}
 
 			// Check if root Applications directories hold the .app
@@ -200,7 +201,6 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 				f.FindApp(rootPath, ctx)
 				return
 			}
-			// For all other scanned directories we need to walk
 			f.FindAppFiles(rootPath, ctx, opts)
 		}(rootPath)
 	}
