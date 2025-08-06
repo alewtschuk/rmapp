@@ -88,9 +88,6 @@ func (f *Finder) FindApp(rootPath string, ctx ScanContext) {
 
 // Walks the directory, ensures theres no error, passes to handle scan for further subpath walking
 func (f *Finder) FindAppFiles(rootPath string, ctx ScanContext, opts options.Options) {
-	if ctx.RootPath == f.System.SystemReceipts {
-		fmt.Println("Entered " + f.System.SystemReceipts)
-	}
 	err := filepath.WalkDir(rootPath,
 		func(subPath string, d fs.DirEntry, err error) error {
 			if err == nil {

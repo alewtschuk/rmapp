@@ -79,7 +79,6 @@ type UserPaths struct {
 func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 	// Extract home directory for use in user identification if ran as sudo
 	home := os.Getenv("HOME")
-	fmt.Printf("Current HOME: %s\n", home)
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
@@ -201,10 +200,6 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 			if rootPath == f.OSMain.RootApplicationsPath || rootPath == f.OSMain.UserApplicationsPath {
 				f.FindApp(rootPath, ctx)
 				return
-			}
-			// For all other scanned directories we need to walk
-			if rootPath == f.System.SystemReceipts {
-				fmt.Println("Current Directory: " + rootPath)
 			}
 			f.FindAppFiles(rootPath, ctx, opts)
 		}(rootPath)
