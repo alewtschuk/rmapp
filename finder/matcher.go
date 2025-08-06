@@ -1,8 +1,6 @@
 package finder
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -39,23 +37,7 @@ func (f Finder) isMatch(filename string, ctx ScanContext) bool {
 	}
 
 	// Otherwise fallback to token check
-	tokenizedFilename := tokenize(filename)
-	if ctx.RootPath == f.System.SystemReceipts {
-		fmt.Println("Name: " + filename)
-		fmt.Print("Tokenized Name: ")
-		fmt.Println(tokenizedFilename)
-		fmt.Println()
-		if containsName(appName, tokenizedFilename) {
-			return true
-		}
-	}
-
-	for _, token := range tokenizedFilename {
-		if token == appName {
-			return true
-		}
-	}
-	return false
+	return searchName(appName, filename)
 }
 
 // Extract domain hint from bundleID (e.g. "com.theapp.App" to "theapp")
@@ -71,51 +53,81 @@ func GetDomainHint(bundleID string) string {
 //
 // Mitigates incorrect matches
 func tokenize(name string) []string {
-	// Used to tokenize Application name
-	if strings.Contains(name, " ") {
-		return strings.FieldsFunc(name, func(r rune) bool {
-			return r == ' '
-		})
-	} else { // Tokenizes the file names based on special chars
-		return strings.FieldsFunc(name, func(r rune) bool {
-			return r == '.' || r == '-' || r == '_' || r == ' ' || r == '/'
-		})
-	}
+	// Tokenizes the file names based on special chars
+	return strings.FieldsFunc(name, func(r rune) bool {
+		return r == '.' || r == '-' || r == '_' || r == ' ' || r == '/'
+	})
 }
 
-func containsName(appName string, tokenizedFilename []string) bool {
-	appNameTokenzied := tokenize(appName) //tokenize the app name to get individual substrings
-	appNameLen := len(appNameTokenzied)   //get length of the tokenized app name array
-	leftPointer := 0                      //initialize left to the start of the filename array
-	rightPointer := appNameLen - 1        //initialize right to the size of the app name array, length of app name will be window size
+// Utilizes KNP search algorithm to find match occurences
+// of the app name inside the file name.
+func searchName(appName, filename string) bool {
 
-	//Edge case, the window can't be created if the filename is shorter than the app name
-	if len(tokenizedFilename) < appNameLen {
-		return false
+	//Tokenize files and build lps
+	tokenizedFile := tokenize(filename)
+	tokenizedApp := tokenize(appName)
+	lps := buildLPS(tokenizedApp)
+
+	//Initalize length and pointer values
+	n := len(tokenizedFile)
+	m := len(tokenizedApp)
+	i := 0
+	j := 0
+
+	//While i < length of tokenizedFile
+	for i < n {
+		//Match occurs, move pointers forward
+		if tokenizedFile[i] == tokenizedApp[j] {
+			i++
+			j++
+			//Complete match found return true
+			if j == m {
+				return true
+			}
+			//Mismatch occurs
+		} else {
+			//As long as j isnt 0 move j back to previous prefix-suffix match
+			if j != 0 {
+				j = lps[j-1]
+				//When j is 0 increment i forwards as no part of prefix-suffix can be used
+			} else {
+				i++
+			}
+		}
 	}
 
-	//For the range of the tokens in the filename array slide the window
-	for i := 0; i < len(tokenizedFilename); i++ {
-
-		if rightPointer >= len(tokenizedFilename) {
-			leftPointer = 0
-			rightPointer = appNameLen - 1
-			return false
-		}
-		fmt.Println("Left Pointer index is " + strconv.Itoa(leftPointer) + " and value is " + tokenizedFilename[leftPointer])
-		fmt.Println("Right Pointer value is " + strconv.Itoa(rightPointer) + " and value is " + tokenizedFilename[rightPointer])
-		if (tokenizedFilename[leftPointer] == appNameTokenzied[0]) && (tokenizedFilename[rightPointer] == appNameTokenzied[appNameLen-1]) {
-			return true
-		}
-
-		leftPointer++
-		rightPointer++
-		fmt.Println("Left Pointer is now: " + strconv.Itoa(leftPointer))
-		fmt.Println("Right Pointer is now: " + strconv.Itoa(rightPointer))
-	}
-
-	// fmt.Print("App Name: ")
-	// fmt.Print(appNameTokenzied)
-	// fmt.Println("\tApp Name Length: " + strconv.Itoa(appNameLen))
 	return false
+}
+
+// Build the LPS array for the KNP search algorithm
+func buildLPS(pattern []string) []int {
+
+	//Set length of the current longest prefix == suffix
+	length := 0
+
+	//Create lps array to size of pattern array and set first lps index
+	lps := make([]int, len(pattern))
+	lps[0] = 0 //will always be zero as no prefix-sufix can exist yet
+
+	//Current index to build in lps
+	i := 1
+	for i < len(pattern) {
+		//Length will be increased as the prefix that is also a suffix expands
+		//Lps positions at i will be filled with updated length values
+		if pattern[i] == pattern[length] {
+			length++
+			lps[i] = length
+			i++
+			//Backtrack to smaller prefix-suffix border
+		} else {
+			if length != 0 {
+				length = lps[length-1]
+				//If there is no usable prefix-suffix border
+			} else {
+				lps[i] = 0
+				i++
+			}
+		}
+	}
+	return lps
 }
