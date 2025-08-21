@@ -3,6 +3,7 @@ package finder
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/alewtschuk/rmapp/options"
@@ -22,6 +23,10 @@ type ScanContext struct {
 	SearchDepth int
 	MatchesChan chan string
 	RootPath    string
+
+	//KMP Additions
+	TokenizedApp []string
+	LpsArray     []int
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -172,6 +177,7 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		matches     []string
 		searchDepth int
 	)
+	tokenizedApp := tokenize(strings.ToLower(appName))
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
 
@@ -188,12 +194,14 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 
 			// Create context struct for passing context to other functions
 			ctx := ScanContext{
-				AppName:     appName,
-				BundleID:    bundleID,
-				DomainHint:  GetDomainHint(bundleID),
-				SearchDepth: searchDepth,
-				MatchesChan: matchesChan,
-				RootPath:    rootPath,
+				AppName:      appName,
+				BundleID:     bundleID,
+				DomainHint:   GetDomainHint(bundleID),
+				SearchDepth:  searchDepth,
+				MatchesChan:  matchesChan,
+				RootPath:     rootPath,
+				TokenizedApp: tokenizedApp,
+				LpsArray:     buildLPS(tokenizedApp),
 			}
 
 			// Check if root Applications directories hold the .app

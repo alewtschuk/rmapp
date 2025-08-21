@@ -8,7 +8,6 @@ import (
 // Checks if the file/directory name contains the appName or bundleID
 func (f Finder) isMatch(filename string, ctx ScanContext) bool {
 	filename = strings.ToLower(filename)
-	appName := strings.ToLower(ctx.AppName)
 	bundleID := strings.ToLower(ctx.BundleID)
 
 	// Match full bundleID anywhere in the filename
@@ -23,16 +22,8 @@ func (f Finder) isMatch(filename string, ctx ScanContext) bool {
 		return true
 	}
 
-	// Only match exact or prefix match
-	if strings.HasSuffix(filename, ".app") {
-		base := strings.TrimSuffix(filename, ".app")
-		if base == appName || strings.HasPrefix(base, appName) {
-			return true
-		}
-	}
-
 	// Otherwise fallback to token check
-	return searchName(appName, filename)
+	return searchName(ctx, filename)
 }
 
 // Extract domain hint from bundleID (e.g. "com.theapp.App" to "theapp")
@@ -56,23 +47,22 @@ func tokenize(name string) []string {
 
 // Utilizes KNP search algorithm to find match occurences
 // of the app name inside the file name.
-func searchName(appName, filename string) bool {
+func searchName(ctx ScanContext, filename string) bool {
 
 	//Tokenize files and build lps
 	tokenizedFile := tokenize(filename)
-	tokenizedApp := tokenize(appName)
-	lps := buildLPS(tokenizedApp)
+	lps := ctx.LpsArray
 
 	//Initalize length and pointer values
 	n := len(tokenizedFile)
-	m := len(tokenizedApp)
+	m := len(ctx.TokenizedApp)
 	i := 0
 	j := 0
 
 	//While i < length of tokenizedFile
 	for i < n {
 		//Match occurs, move pointers forward
-		if tokenizedFile[i] == tokenizedApp[j] {
+		if tokenizedFile[i] == ctx.TokenizedApp[j] {
 			i++
 			j++
 			//Complete match found return true
