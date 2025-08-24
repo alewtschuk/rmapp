@@ -50,6 +50,7 @@ func tokenize(name string) []string {
 func searchName(ctx ScanContext, filename string) bool {
 
 	//Tokenize files and build lps
+	filename = strings.TrimRightFunc(filename, unicode.IsDigit) //trim any numeric suffix off filename
 	tokenizedFile := tokenize(filename)
 	lps := ctx.LpsArray
 
