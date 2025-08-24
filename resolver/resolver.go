@@ -6,6 +6,7 @@ application bundle data
 */
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,7 +61,7 @@ func getMdlsIdentifier(appName string) string {
 	if err != nil {
 		appName = strings.TrimSuffix(strings.TrimPrefix(appName, "/Applications/"), ".app")
 		fmt.Printf("[rmapp] App %s not found.\n", pfmt.ApplyColor(appName, 2))
-		os.Exit(0)
+		os.Exit(1)
 	}
 	// Set full mlds output to string
 	mdlsReturnStr := string(out)
@@ -71,7 +72,12 @@ func getMdlsIdentifier(appName string) string {
 // Takes mlds returned kMDItemCFBundleIdentifier
 // string and extracts the bundle id
 func getBundleID(mdlsReturnStr string) string {
-	bundleID := extractQuotedSubstring(mdlsReturnStr)
+	bundleID, err := extractQuotedSubstring(mdlsReturnStr)
+	if err != nil {
+
+		fmt.Println(pfmt.ApplyColor("[rmapp] Error: BundleId is empty", 9))
+		os.Exit(1)
+	}
 
 	return bundleID
 }
@@ -79,13 +85,13 @@ func getBundleID(mdlsReturnStr string) string {
 // Extracts substring between " delimiter
 //
 // For use to trim kMDItemCFBundleIdentifier string
-func extractQuotedSubstring(str string) string {
+func extractQuotedSubstring(str string) (string, error) {
 	strs := strings.Split(str, "\"")
 	if len(strs) >= 2 {
-		return strs[1]
+		return strs[1], nil
 	}
 
-	return ""
+	return "", errors.New("bundleid value is empty")
 }
 
 // Checks if the input app name contains ".app"

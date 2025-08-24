@@ -90,6 +90,12 @@ func (f *Finder) FindApp(rootPath string, ctx ScanContext) {
 func (f *Finder) FindAppFiles(rootPath string, ctx ScanContext, opts options.Options) {
 	err := filepath.WalkDir(rootPath,
 		func(subPath string, d fs.DirEntry, err error) error {
+
+			//Safeguard check to ensure the root directory is not matched
+			if subPath == rootPath {
+				return nil
+			}
+
 			if err == nil {
 				return f.handleScan(d, subPath, rootPath, ctx, opts)
 			}

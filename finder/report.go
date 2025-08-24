@@ -50,7 +50,8 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 		if err != nil {
 			var pathError *os.PathError
 			if errors.As(err, &pathError) {
-				pfmt.Printcln("[rmapp] path error at match", 3)
+				fmt.Printf("%s %s", pfmt.ApplyColor("[rmapp] path error at match:", 3), match)
+				continue
 			}
 		}
 

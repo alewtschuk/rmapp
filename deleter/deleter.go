@@ -35,6 +35,16 @@ func (d *Deleter) Delete() error {
 	wg := sync.WaitGroup{}
 
 	var totalSize int64
+	var isSudo bool
+	sudoUser := os.Getenv("SUDO_USER") //check what user called sudo if any
+
+	// Set if user is sudo or not
+	if sudoUser == "" {
+		isSudo = false
+	} else {
+		isSudo = true
+	}
+
 	for _, match := range d.matches {
 		size := finder.GetDiskSize(match)
 		totalSize += size
@@ -51,26 +61,41 @@ func (d *Deleter) Delete() error {
 					return err
 				}
 
-				success := darwin.MoveFileToTrash(match)
-				if !success {
-					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
-					fmt.Println("Attempting trashing via osascript...")
-					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
-					err = cmd.Run()
+				if isSudo {
+					appleScript := fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match) //setup applescript string
+					cmd := exec.Command("sudo", "-u", sudoUser, "osascript", "-e", appleScript)
+					err := cmd.Run()
 					if err != nil {
-						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+						fmt.Println(pfmt.ApplyColor(fmt.Sprintf("[rmapp] ERROR: privileged trash for %s failed: %v", match, err), 9))
+						// Even if this fails, we should continue with other files.
+						return nil
 					}
 
 					if d.opts.Verbosity {
 						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
 					}
-					//fmt.Println(err)
-					//err = errors.New("file trashing error")
-					return err
-				}
+				} else {
+					success := darwin.MoveFileToTrash(match)
+					if !success {
+						fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
+						fmt.Println("Attempting trashing via osascript...")
+						cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
+						err = cmd.Run()
+						if err != nil {
+							fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+						}
 
-				if d.opts.Verbosity {
-					fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+						if d.opts.Verbosity {
+							fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+						}
+						//fmt.Println(err)
+						//err = errors.New("file trashing error")
+						return err
+					}
+
+					if d.opts.Verbosity {
+						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+					}
 				}
 
 				return nil
