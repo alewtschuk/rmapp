@@ -77,7 +77,7 @@ func (d *Deleter) Delete() error {
 				} else {
 					success := darwin.MoveFileToTrash(match)
 					if !success {
-						fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
+						fmt.Println(pfmt.ApplyColor("WARN: file "+match+" requires elevated permissions to remove", 3))
 						fmt.Println("Attempting trashing via osascript...")
 						cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
 						err = cmd.Run()
@@ -157,13 +157,13 @@ func exists(match string) error {
 }
 
 // RunPrivilegedDelete deletes a list of files/directories using AppleScript with elevated privileges.
-// This is used as a fallback when SIP or permissions prevent os.RemoveAll.
+// This is used as a fallback when permissions prevent os.RemoveAll.
 func RunPrivilegedDelete(paths []string, verbose bool) error {
 	if len(paths) == 0 {
 		return nil
 	}
 
-	fmt.Println(pfmt.ApplyColor("WARN: Some files are SIP-protected. Escalating with osascript…", 3))
+	fmt.Println(pfmt.ApplyColor("WARN: Some files are permission protected. Escalating with osascript…", 3))
 
 	var quoted []string
 	for _, path := range paths {
