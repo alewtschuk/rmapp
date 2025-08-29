@@ -8,6 +8,7 @@ application bundle data
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -34,8 +35,8 @@ func NewResolver(app string, opts options.Options) *Resolver {
 	appName := getDotApp(app)
 	mdlsReturnStr := getMdlsIdentifier(appName)
 	if opts.Verbosity {
-		fmt.Println("\nApplication to delete: ", pfmt.ApplyColor(app, 2))
-		fmt.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
+		log.Println("\nApplication to delete: ", pfmt.ApplyColor(app, 2))
+		log.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
 	}
 	finder := finder.NewFinder(app, getBundleID((mdlsReturnStr)), opts) // uses app name over .app to ensure propper name based searching
 	resolver := &Resolver{

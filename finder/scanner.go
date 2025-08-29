@@ -3,6 +3,7 @@ package finder
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,9 +145,9 @@ func (f Finder) shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 // Helper function to print and send matches to channel
 func (f *Finder) emitMatch(name, path string, matchesChan chan string, opts options.Options, symlink bool) {
 	if opts.Verbosity && !opts.Peek && !symlink {
-		fmt.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
+		log.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	} else if opts.Verbosity && !opts.Peek && symlink {
-		fmt.Printf("Symlink match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
+		log.Printf("Symlink match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
 
 	matchesChan <- path

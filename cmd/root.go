@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 
 	"github.com/alewtschuk/pfmt"
@@ -87,6 +89,13 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 				Mode:      force,
 				Peek:      peek,
 			}
+		}
+
+		if !opts.Verbosity {
+			log.SetOutput(io.Discard)
+		} else {
+			log.SetOutput(os.Stdout)
+			log.SetFlags(0)
 		}
 		// Create and populate new resolver
 		instance := resolver.NewResolver(appName, opts)

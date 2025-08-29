@@ -3,6 +3,7 @@ package deleter
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -71,9 +72,8 @@ func (d *Deleter) Delete() error {
 						return nil
 					}
 
-					if d.opts.Verbosity {
-						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-					}
+					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+
 				} else {
 					success := darwin.MoveFileToTrash(match)
 					if !success {
@@ -85,17 +85,13 @@ func (d *Deleter) Delete() error {
 							fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
 						}
 
-						if d.opts.Verbosity {
-							fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-						}
-						//fmt.Println(err)
-						//err = errors.New("file trashing error")
+						log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+
 						return err
 					}
 
-					if d.opts.Verbosity {
-						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-					}
+					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+
 				}
 
 				return nil
@@ -124,9 +120,10 @@ func (d *Deleter) Delete() error {
 						return
 					}
 					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: "+path+" could not be deleted", 9))
-				} else if d.opts.Verbosity {
-					fmt.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
 				}
+
+				log.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
+
 			}(match)
 		}
 		wg.Wait() // block till all routines have returned
