@@ -1,7 +1,9 @@
 package finder
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -25,11 +27,14 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 	}
 
 	var (
-		size         int64
-		totalSize    int64
-		numFiles     int
-		maxLineWidth int
-		metas        []MatchMeta
+		size              int64
+		totalSize         int64
+		numFiles          int
+		maxLineWidth      int
+		metas             []MatchMeta
+		symlink           bool
+		printLine         string
+		printLineStripped string
 	)
 
 	for _, match := range matches {
@@ -41,12 +46,32 @@ func GeneratePeekReport(matches []string, appName string, opts options.Options) 
 		totalSize += size
 		numFiles++
 
+		matchInfo, err := os.Lstat(match)
+		if err != nil {
+			var pathError *os.PathError
+			if errors.As(err, &pathError) {
+				fmt.Printf("%s %s", pfmt.ApplyColor("[rmapp] path error at match:", 3), match)
+				continue
+			}
+		}
+
+		if matchInfo.Mode()&os.ModeSymlink != 0 {
+			symlink = true
+		} else {
+			symlink = false
+		}
+
 		sizeStr := FormatSize(size)
 		appColored := pfmt.ApplyColor(appName, 2)
 		pathColored := pfmt.ApplyColor(match, 3)
 
-		printLine := fmt.Sprintf("• Match %s FOUND at: %s", appColored, pathColored)
-		printLineStripped := fmt.Sprintf("• Match %s FOUND at: %s", appName, match)
+		if !symlink {
+			printLine = fmt.Sprintf("• Match %s FOUND at: %s", appColored, pathColored)
+			printLineStripped = fmt.Sprintf("• Match %s FOUND at: %s", appName, match)
+		} else {
+			printLine = fmt.Sprintf("• Symlink match %s FOUND at: %s", appColored, pathColored)
+			printLineStripped = fmt.Sprintf("• Symlink match %s FOUND at: %s", appName, match)
+		}
 
 		if len(printLineStripped) > maxLineWidth {
 			maxLineWidth = len(printLineStripped)

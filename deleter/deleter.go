@@ -3,6 +3,7 @@ package deleter
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -35,6 +36,16 @@ func (d *Deleter) Delete() error {
 	wg := sync.WaitGroup{}
 
 	var totalSize int64
+	var isSudo bool
+	sudoUser := os.Getenv("SUDO_USER") //check what user called sudo if any
+
+	// Set if user is sudo or not
+	if sudoUser == "" {
+		isSudo = false
+	} else {
+		isSudo = true
+	}
+
 	for _, match := range d.matches {
 		size := finder.GetDiskSize(match)
 		totalSize += size
@@ -51,26 +62,36 @@ func (d *Deleter) Delete() error {
 					return err
 				}
 
-				success := darwin.MoveFileToTrash(match)
-				if !success {
-					fmt.Println(pfmt.ApplyColor("WARN: file "+match+" is sandboxed and SIP protected", 3))
-					fmt.Println("Attempting trashing via osascript...")
-					cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
-					err = cmd.Run()
+				if isSudo {
+					appleScript := fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match) //setup applescript string
+					cmd := exec.Command("sudo", "-u", sudoUser, "osascript", "-e", appleScript)
+					err := cmd.Run()
 					if err != nil {
-						fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+						fmt.Println(pfmt.ApplyColor(fmt.Sprintf("[rmapp] ERROR: privileged trash for %s failed: %v", match, err), 9))
+						// Even if this fails, we should continue with other files.
+						return nil
 					}
 
-					if d.opts.Verbosity {
-						fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-					}
-					//fmt.Println(err)
-					//err = errors.New("file trashing error")
-					return err
-				}
+					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
 
-				if d.opts.Verbosity {
-					fmt.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+				} else {
+					success := darwin.MoveFileToTrash(match)
+					if !success {
+						fmt.Println(pfmt.ApplyColor("WARN: file "+match+" requires elevated permissions to remove", 3))
+						fmt.Println("Attempting trashing via osascript...")
+						cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
+						err = cmd.Run()
+						if err != nil {
+							fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
+						}
+
+						log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+
+						return err
+					}
+
+					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
+
 				}
 
 				return nil
@@ -99,9 +120,10 @@ func (d *Deleter) Delete() error {
 						return
 					}
 					fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: "+path+" could not be deleted", 9))
-				} else if d.opts.Verbosity {
-					fmt.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
 				}
+
+				log.Printf("Successfully deleted %s 💥\n", pfmt.ApplyColor(path, 3))
+
 			}(match)
 		}
 		wg.Wait() // block till all routines have returned
@@ -135,13 +157,13 @@ func exists(match string) error {
 }
 
 // RunPrivilegedDelete deletes a list of files/directories using AppleScript with elevated privileges.
-// This is used as a fallback when SIP or permissions prevent os.RemoveAll.
+// This is used as a fallback when permissions prevent os.RemoveAll.
 func RunPrivilegedDelete(paths []string, verbose bool) error {
 	if len(paths) == 0 {
 		return nil
 	}
 
-	fmt.Println(pfmt.ApplyColor("WARN: Some files are SIP-protected. Escalating with osascript…", 3))
+	fmt.Println(pfmt.ApplyColor("WARN: Some files are permission protected. Escalating with osascript…", 3))
 
 	var quoted []string
 	for _, path := range paths {

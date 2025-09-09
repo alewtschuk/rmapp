@@ -34,7 +34,7 @@ in your system, securely, with file size reporting, and default safe trashing. N
 - 📂 Preview the size of and the discovered files via `--peek`
 - 💾 Can choose to view files with logical or disk size values
 - 💻 Built natively in Go for MacOS with Objective-C interop
-- 🔐 Works with MacOS System Integrity Protection(SIP) to safely remove protected files with user approval
+- 🔐 Works with MacOS system security to safely remove protected files with user approval
 - **MORE TO COME !!! 🎉**
 
 ## Demo

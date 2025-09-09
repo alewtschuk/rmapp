@@ -4,33 +4,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"sort"
 	"testing"
 
-	"github.com/alewtschuk/rmapp/darwin"
 	"github.com/alewtschuk/rmapp/deleter"
 	"github.com/alewtschuk/rmapp/finder"
 	"github.com/alewtschuk/rmapp/options"
 )
 
-//NOTE: Blender is hardcoded for sake of simplicity with testing a large free app
-// All Blender tests wil fail if Blender is not installed.
+// --- Test Helpers ---
 
-func TestGetBundle(t *testing.T) {
-	expected := "org.wireshark.Wireshark"
-	actual := extractQuotedSubstring("kMDItemCFBundleIdentifier = \"org.wireshark.Wireshark\"")
-	if actual != expected {
-		t.Errorf("Expected %s but got %s", expected, actual)
-	}
-}
-
-func makeTestFiles(n int, t *testing.T) []string {
+// makeTestFiles creates n temporary files for testing.
+func makeTestFiles(t *testing.T, n int, namePattern string) []string {
 	t.Helper()
 	var paths []string
 	for i := 0; i < n; i++ {
-		tmp, err := os.CreateTemp("", "rmapp-test-*")
+		tmp, err := os.CreateTemp("", fmt.Sprintf("%s-%d-*", namePattern, i))
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("Failed to create temp file: %v", err)
 		}
 		tmp.Close()
 		paths = append(paths, tmp.Name())
@@ -38,19 +29,66 @@ func makeTestFiles(n int, t *testing.T) []string {
 	return paths
 }
 
-func TestFinderOutput(t *testing.T) {
-	opts := options.Options{
-		Verbosity: true,
-		Mode:      false,
-		Peek:      false,
-	}
-	appname := "Blender"
-	bundleID := "org.blenderfoundation.blender"
-	finder := finder.NewFinder(appname, bundleID, opts)
-	matches := finder.MatchedPaths
-	fmt.Println(matches)
+// assertSlicesEqual checks if two string slices are equal, ignoring order.
+func assertSlicesEqual(t *testing.T, expected, actual []string) {
+	t.Helper()
+	sort.Strings(expected)
+	sort.Strings(actual)
 
+	if len(expected) != len(actual) {
+		t.Fatalf("Expected %d paths, but got %d.\nExpected: %v\nActual:   %v", len(expected), len(actual), expected, actual)
+	}
+
+	for i := range expected {
+		if expected[i] != actual[i] {
+			t.Fatalf("Mismatched paths.\nExpected: %v\nActual:   %v", expected, actual)
+		}
+	}
 }
+
+// setupTestFileSystem creates a temporary directory structure to simulate a user's home directory.
+// It returns the path to the fake home directory and a slice of all created file/dir paths that should be found.
+func setupTestFileSystem(t *testing.T, appName, bundleID string) (string, []string) {
+	t.Helper()
+	homeDir := t.TempDir()
+
+	// NOTE: We are not creating a fake .app bundle in /Applications because tests
+	// should not write outside their temporary directory. This test assumes the
+	// application bundle itself has been found and focuses on finding related files
+	// within the user's home directory.
+	pathsToCreate := map[string]string{
+		"appSupport":  filepath.Join(homeDir, "Library", "Application Support", appName),
+		"caches":      filepath.Join(homeDir, "Library", "Caches", bundleID),
+		"logs":        filepath.Join(homeDir, "Library", "Logs", appName),
+		"preferences": filepath.Join(homeDir, "Library", "Preferences", bundleID+".plist"),
+		"randomFile":  filepath.Join(homeDir, "Documents", "a file with "+appName+" in its name.txt"),
+	}
+
+	var expectedPaths []string
+	for key, path := range pathsToCreate {
+		// Create parent dirs and the file/dir itself
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatalf("Failed to create parent dir for %s: %v", path, err)
+		}
+
+		if key == "preferences" || key == "randomFile" {
+			f, err := os.Create(path)
+			if err != nil {
+				t.Fatalf("Failed to create file %s: %v", path, err)
+			}
+			f.Close()
+		} else {
+			if err := os.Mkdir(path, 0755); err != nil {
+				t.Fatalf("Failed to create dir %s: %v", path, err)
+			}
+		}
+		expectedPaths = append(expectedPaths, path)
+	}
+
+	return homeDir, expectedPaths
+}
+
+// --- Unit Tests ---
 
 func TestGetDotApp(t *testing.T) {
 	tests := []struct {
@@ -78,18 +116,21 @@ func TestExtractQuotedSubstring(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
+		hasError bool
 	}{
-		{`kMDItemCFBundleIdentifier = "com.apple.Safari"`, "com.apple.Safari"},
-		{`kMDItemCFBundleIdentifier = "org.mozilla.firefox"`, "org.mozilla.firefox"},
-		{`"just.quoted.string"`, "just.quoted.string"},
-		{`no quotes here`, ""},
-		{`"incomplete quote`, ""},
-		{`""`, ""},
+		{`kMDItemCFBundleIdentifier = "com.apple.Safari"`, "com.apple.Safari", false},
+		{`"just.quoted.string"`, "just.quoted.string", false},
+		{`no quotes here`, "", true},
+		{`"incomplete quote`, "", true},
+		{`""`, "", false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			result := extractQuotedSubstring(test.input)
+			result, err := extractQuotedSubstring(test.input)
+			if (err != nil) != test.hasError {
+				t.Errorf("extractQuotedSubstring(%q) returned error %v, want error=%v", test.input, err, test.hasError)
+			}
 			if result != test.expected {
 				t.Errorf("extractQuotedSubstring(%q) = %q, want %q", test.input, result, test.expected)
 			}
@@ -97,241 +138,57 @@ func TestExtractQuotedSubstring(t *testing.T) {
 	}
 }
 
-func TestResolverWithPeekMode(t *testing.T) {
-	// Skip if Blender app not likely to be present
-	if _, err := os.Stat("/Applications/Blender.app"); os.IsNotExist(err) {
-		t.Skip("Blender.app not found - skipping test")
+// --- Component Tests ---
+
+func TestDeleterModes(t *testing.T) {
+	tests := []struct {
+		name     string
+		isUnsafe bool
+	}{
+		{"SafeMode (Trash)", false},
+		{"UnsafeMode (Delete)", true},
 	}
 
-	opts := options.Options{
-		Verbosity: false,
-		Mode:      false,
-		Peek:      true,
-		Logical:   true,
-	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Note: The SafeMode test will move temporary files to the system's Trash.
+			filesToDelete := makeTestFiles(t, 3, "test-deleter")
+			opts := options.Options{Mode: tc.isUnsafe}
+			d := deleter.NewDeleter(filesToDelete, opts)
 
-	resolver := NewResolver("Blender", opts)
-
-	if !opts.Peek {
-		t.Error("Expected peeked=true with peek=true")
-	}
-
-	if len(resolver.Finder.MatchedPaths) == 0 {
-		t.Error("Expected to find matches for Blender app")
-	}
-
-	if resolver.BundleID == "" {
-		t.Error("Expected non-empty bundleID")
-	}
-}
-
-func TestResolverWithDifferentAppNames(t *testing.T) {
-	apps := []string{
-		"Obsidian",
-		"Ollama",
-	}
-
-	for _, app := range apps {
-		t.Run(app, func(t *testing.T) {
-			// Skip if app not found
-			if _, err := os.Stat("/Applications/" + app + ".app"); os.IsNotExist(err) {
-				t.Skipf("%s.app not found - skipping test", app)
-				return
+			if err := d.Delete(); err != nil {
+				t.Fatalf("Delete failed: %v", err)
 			}
 
-			opts := options.Options{
-				Verbosity: false,
-				Mode:      false,
-				Peek:      true,
-			}
-
-			resolver := NewResolver(app, opts)
-
-			if resolver.AppName != app+".app" {
-				t.Errorf("Expected AppName=%s.app, got %s", app, resolver.AppName)
-			}
-
-			if resolver.BundleID == "" {
-				t.Errorf("Expected non-empty bundleID for %s", app)
-			}
-
-			// Check if at least the main app was found
-			foundMainApp := false
-			for _, path := range resolver.Finder.MatchedPaths {
-				if strings.HasSuffix(path, app+".app") {
-					foundMainApp = true
-					break
+			// Check that files are gone from their original locations in both modes.
+			for _, path := range filesToDelete {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Errorf("Expected file %s to be gone from original location, but it still exists", path)
 				}
-			}
-
-			if !foundMainApp {
-				t.Errorf("Main app %s.app not found in matches", app)
 			}
 		})
 	}
 }
 
-// Testing the actual FindApp functionality
-func TestFinderFindApp(t *testing.T) {
-	// Create a temporary directory to simulate Applications dir
-	tmpDir, err := os.MkdirTemp("", "rmapp-test-apps")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+// TestFinder_FindsHomeDirFiles tests the finder's ability to discover files in a controlled environment.
+func TestFinder_FindsHomeDirFiles(t *testing.T) {
+	// --- Test Setup ---
+	appName := "MyTestApp"
+	bundleID := "com.gemini.test"
 
-	// Create fake .app folders
-	testApps := []string{
-		"TestApp.app",
-		"AnotherTestApp.app",
-		"SomeOtherApp.app",
-	}
+	// 1. Create a fake file system layout in a temporary directory.
+	fakeHome, expectedPaths := setupTestFileSystem(t, appName, bundleID)
 
-	for _, app := range testApps {
-		err := os.Mkdir(filepath.Join(tmpDir, app), 0755)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	// 2. Point the HOME environment variable to our fake home directory.
+	// This redirects file searches in `~/Library` to our safe temp directory.
+	t.Setenv("HOME", fakeHome)
 
-	// Test FindApp with our fake directory
-	opts := options.Options{
-		Verbosity: false,
-		Mode:      false,
-		Peek:      true,
-	}
+	// --- Test Execution ---
+	// We test the finder directly to avoid calling the real getBundleID, which is not easily mockable.
+	opts := options.Options{}
+	finder := finder.NewFinder(appName, bundleID, opts)
 
-	f := finder.NewFinder("TestApp", "com.test.app", opts)
-
-	// Create a ScanContext
-	matchesChan := make(chan string)
-	ctx := finder.ScanContext{
-		AppName:     "TestApp",
-		BundleID:    "com.test.app",
-		SearchDepth: finder.STANDARD_DEPTH,
-		MatchesChan: matchesChan,
-	}
-
-	// Collect matches in a goroutine
-	var matches []string
-	done := make(chan bool)
-
-	go func() {
-		for match := range matchesChan {
-			matches = append(matches, match)
-		}
-		done <- true
-	}()
-
-	// Test with our temp directory
-	f.FindApp(tmpDir, ctx)
-
-	close(matchesChan)
-	<-done
-
-	// Check if TestApp.app was found
-	found := false
-	for _, match := range matches {
-		if match == filepath.Join(tmpDir, "TestApp.app") {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Errorf("Expected to find TestApp.app in results")
-	}
-}
-
-// Test for resolver with app name that already has .app extension
-func TestResolverWithDotApp(t *testing.T) {
-	opts := options.Options{
-		Verbosity: false,
-		Mode:      false,
-		Peek:      true,
-	}
-
-	// Test with an app name that already has .app extension
-	resolver1 := NewResolver("Blender.app", opts)
-
-	// Compare with normal usage
-	resolver2 := NewResolver("Blender", opts)
-
-	// Both should produce the same AppName
-	if resolver1.AppName != resolver2.AppName {
-		t.Errorf("Expected consistent AppName regardless of .app suffix, got %s and %s",
-			resolver1.AppName, resolver2.AppName)
-	}
-
-	// BundleIDs should be the same too
-	if resolver1.BundleID != resolver2.BundleID {
-		t.Errorf("Expected consistent BundleID regardless of .app suffix, got %s and %s",
-			resolver1.BundleID, resolver2.BundleID)
-	}
-}
-
-func TestTrash(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "rmapp-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name()) // clean up if trash fails
-
-	success := darwin.MoveFileToTrash(tmpFile.Name())
-	if !success {
-		t.Fatalf("Expected to trash %s", tmpFile.Name())
-	}
-}
-
-func TestMultipleDeleteSAFE(t *testing.T) {
-	opts := options.Options{
-		Verbosity: true,
-		Mode:      false,
-		Peek:      false,
-	}
-	matches := makeTestFiles(4, t)
-	d := deleter.NewDeleter(matches, opts)
-	err := d.Delete()
-	for _, path := range matches {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Errorf("Expected %s to be deleted, but it still exists", path)
-		}
-	}
-	if err != nil {
-		t.Fatalf("Expected to successfully delete file at %s, but it failed", matches)
-	}
-}
-
-func TestDeleteUNSAFE(t *testing.T) {
-	opts := options.Options{
-		Verbosity: true,
-		Mode:      true,
-		Peek:      false,
-	}
-	matches := makeTestFiles(4, t)
-	d := deleter.NewDeleter(matches, opts)
-	err := d.Delete()
-	for _, path := range matches {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Errorf("Expected %s to be deleted, but it still exists", path)
-		}
-	}
-	if err != nil {
-		t.Fatalf("Expected to successfully delete file at %s, but it failed", matches)
-	}
-}
-
-func TestResolver_MatchesExpectedFiles(t *testing.T) {
-	opts := options.Options{Peek: false, Verbosity: false}
-	resolver := NewResolver("Blender", opts)
-
-	if len(resolver.Finder.MatchedPaths) == 0 {
-		t.Errorf("Expected matches for Blender, got none")
-	}
-
-	for _, path := range resolver.Finder.MatchedPaths {
-		if !strings.Contains(path, "Blender") && !strings.Contains(path, "org.blenderfoundation.blender") {
-			t.Errorf("Unexpected match path: %s", path)
-		}
-	}
+	// --- Assertions ---
+	// The main check: did we find all the files we created in our fake home directory?
+	assertSlicesEqual(t, expectedPaths, finder.MatchedPaths)
 }

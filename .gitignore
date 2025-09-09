@@ -2,12 +2,15 @@
 .DS_Store
 
 #Testing/Build
-.sh
+*.sh
 rmapp
 screenshots
 rmapp-amd64
 rmapp-arm64
 *tar.gz
+times.md
+rmapp_test.go
+*.dis
 
 #VSCode
 .vscode

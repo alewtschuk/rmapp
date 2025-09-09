@@ -3,6 +3,7 @@ package finder
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/alewtschuk/rmapp/options"
@@ -21,6 +22,11 @@ type ScanContext struct {
 	DomainHint  string
 	SearchDepth int
 	MatchesChan chan string
+	RootPath    string
+
+	//KMP Additions
+	TokenizedApp []string
+	LpsArray     []int
 }
 
 // Whole Finder struct that holds everything related to finder
@@ -76,11 +82,12 @@ type UserPaths struct {
 
 // Creates and loads a new Finder with all needed fields
 func NewFinder(appName string, bundleID string, opts options.Options) Finder {
-	user := os.Getenv("USER")
+	// Extract home directory for use in user identification if ran as sudo
+	home := os.Getenv("HOME")
 	finder := Finder{
 		OSMain: OSMainPaths{
 			RootApplicationsPath: "/Applications",
-			UserApplicationsPath: fmt.Sprintf("/Users/%s/Applications", user),
+			UserApplicationsPath: fmt.Sprintf("%s/Applications", home),
 		},
 		System: SystemPaths{
 			SystemSupportFilesPath:      "/Library/Application Support",
@@ -100,18 +107,18 @@ func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 			SystemVar:                   "/usr/local/var",
 		},
 		UserPaths: UserPaths{
-			AppSupportFilesPath: fmt.Sprintf("/Users/%s/Library/Application Support", user),
-			PreferencesPath:     fmt.Sprintf("/Users/%s/Library/Preferences", user),
-			CachesPath:          fmt.Sprintf("/Users/%s/Library/Caches", user),
-			ContainersPath:      fmt.Sprintf("/Users/%s/Library/Containers", user),
-			SavedStatePath:      fmt.Sprintf("/Users/%s/Library/Saved Application State", user),
-			HTTPStorages:        fmt.Sprintf("/Users/%s/Library/HTTPStorages", user),
-			GroupContainers:     fmt.Sprintf("/Users/%s/Library/Group Containers", user),
-			InternetPlugIns:     fmt.Sprintf("/Users/%s/Library/Internet Plug-Ins", user),
-			LaunchAgents:        fmt.Sprintf("/Users/%s/Library/LaunchAgents", user),
-			Logs:                fmt.Sprintf("/Users/%s/Library/Logs", user),
-			WebKit:              fmt.Sprintf("/Users/%s/Library/WebKit", user),
-			ApplicationScripts:  fmt.Sprintf("/Users/%s/Library/Application Scripts", user),
+			AppSupportFilesPath: fmt.Sprintf("%s/Library/Application Support", home),
+			PreferencesPath:     fmt.Sprintf("%s/Library/Preferences", home),
+			CachesPath:          fmt.Sprintf("%s/Library/Caches", home),
+			ContainersPath:      fmt.Sprintf("%s/Library/Containers", home),
+			SavedStatePath:      fmt.Sprintf("%s/Library/Saved Application State", home),
+			HTTPStorages:        fmt.Sprintf("%s/Library/HTTPStorages", home),
+			GroupContainers:     fmt.Sprintf("%s/Library/Group Containers", home),
+			InternetPlugIns:     fmt.Sprintf("%s/Library/Internet Plug-Ins", home),
+			LaunchAgents:        fmt.Sprintf("%s/Library/LaunchAgents", home),
+			Logs:                fmt.Sprintf("%s/Library/Logs", home),
+			WebKit:              fmt.Sprintf("%s/Library/WebKit", home),
+			ApplicationScripts:  fmt.Sprintf("%s/Library/Application Scripts", home),
 		},
 		verbosity: opts.Verbosity,
 	}
@@ -166,9 +173,11 @@ func (f Finder) AllSearchPaths() []string {
 // build a string slice of matched paths that will be flagged for deletion
 func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, error) {
 	var (
-		err     error
-		matches []string
+		err         error
+		matches     []string
+		searchDepth int
 	)
+	tokenizedApp := tokenize(strings.ToLower(appName))
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
 
@@ -177,18 +186,22 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 
 		go func(rootPath string) {
 			defer wg.Done()
-			searchDepth := STANDARD_DEPTH
 			if rootPath == f.UserPaths.PreferencesPath {
 				searchDepth = PREFERENCES_DEPTH
+			} else {
+				searchDepth = STANDARD_DEPTH
 			}
 
 			// Create context struct for passing context to other functions
 			ctx := ScanContext{
-				AppName:     appName,
-				BundleID:    bundleID,
-				DomainHint:  GetDomainHint(bundleID),
-				SearchDepth: searchDepth,
-				MatchesChan: matchesChan,
+				AppName:      appName,
+				BundleID:     bundleID,
+				DomainHint:   GetDomainHint(bundleID),
+				SearchDepth:  searchDepth,
+				MatchesChan:  matchesChan,
+				RootPath:     rootPath,
+				TokenizedApp: tokenizedApp,
+				LpsArray:     buildLPS(tokenizedApp),
 			}
 
 			// Check if root Applications directories hold the .app
@@ -196,7 +209,6 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 				f.FindApp(rootPath, ctx)
 				return
 			}
-			// For all other scanned directories we need to walk
 			f.FindAppFiles(rootPath, ctx, opts)
 		}(rootPath)
 	}
