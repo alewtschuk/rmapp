@@ -59,9 +59,7 @@ Rmapp offers a variety of installation options to choose from:
 ```
 ### 🔗 Install from source using Go
 ```bash
-  git clone https://github.com/alewtschuk/rmapp.git
-  cd rmapp
-  go install
+  go install github.com/alewtschuk/rmapp@latest
 ```
 
 ## Note
