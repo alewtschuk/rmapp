@@ -35,7 +35,8 @@ type Finder struct {
 	System       SystemPaths
 	UserPaths    UserPaths
 	MatchedPaths []string
-	verbosity    bool
+	Verbosity    bool
+	Reported     bool
 }
 
 // The default os directories where the .app file should exist
@@ -120,13 +121,19 @@ func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 			WebKit:              fmt.Sprintf("%s/Library/WebKit", home),
 			ApplicationScripts:  fmt.Sprintf("%s/Library/Application Scripts", home),
 		},
-		verbosity: opts.Verbosity,
+		Verbosity: opts.Verbosity,
 	}
+
+	if opts.Peek || opts.Size {
+		finder.Reported = true
+	} else {
+		finder.Reported = false
+	}
+
 	matches, err := finder.FindMatches(appName, bundleID, opts)
 	if err != nil {
 		fmt.Println("NewFinder Error: ", err)
 	}
-
 	finder.MatchedPaths = matches
 	return finder
 }
@@ -224,8 +231,8 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		matches = append(matches, match)
 	}
 
-	if opts.Peek {
-		GeneratePeekReport(matches, appName, opts)
+	if opts.Peek || opts.Size {
+		GenerateReport(matches, appName, opts)
 	}
 
 	return matches, err
