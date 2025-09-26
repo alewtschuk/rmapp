@@ -32,6 +32,7 @@ var (
 	peek       bool
 	logical    bool
 	versionOpt bool
+	size       bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -76,19 +77,31 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		appName := args[0]
 		var opts options.Options
 		// Enables logical file size if peek is used
-		if peek {
+		switch {
+
+		case peek:
 			opts = options.Options{
 				Verbosity: verbose,
 				Mode:      force,
 				Peek:      peek,
 				Logical:   logical,
 			}
-		} else {
+
+		case size:
+			opts = options.Options{
+				Verbosity: verbose,
+				Mode:      force,
+				Peek:      peek,
+				Logical:   logical,
+				Size:      size,
+			}
+		default:
 			opts = options.Options{
 				Verbosity: verbose,
 				Mode:      force,
 				Peek:      peek,
 			}
+
 		}
 
 		if !opts.Verbosity {
@@ -99,7 +112,7 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		}
 		// Create and populate new resolver
 		instance := resolver.NewResolver(appName, opts)
-		if opts.Peek {
+		if instance.Reported {
 			os.Exit(0)
 		}
 		instance.Deleter.Delete()
@@ -148,6 +161,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&peek, "peek", "p", false, "Peek matched files")
 	rootCmd.Flags().BoolVarP(&logical, "logical", "l", false, "Show logical file size")
 	rootCmd.Flags().BoolVar(&versionOpt, "version", false, "Show rmapp version")
+	rootCmd.Flags().BoolVarP(&size, "size", "s", false, "Show the total size of the application's data")
 }
 
 // Prints version
@@ -158,7 +172,7 @@ func getVersion() {
 	}
 }
 
-// Checks if peeka and force is enabled, exits accordingly
+// Checks argument compatibility
 func checkArgs() {
 	if peek && force {
 		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...", 9)
@@ -172,8 +186,13 @@ func checkArgs() {
 		os.Exit(0)
 	}
 
-	if !peek && logical {
+	if !(peek || size) && logical {
 		pfmt.Printcln("[rmapp] Incompatible args '--logical' must be used in '--peek' context. Please run again with '--peek' enabled...", 9)
+		os.Exit(0)
+	}
+
+	if peek && size {
+		pfmt.Printcln("[rmapp] Incompatible args '--size' is shown in '--peek'. Please choose one argument and run again...", 9)
 		os.Exit(0)
 	}
 }

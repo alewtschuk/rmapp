@@ -23,9 +23,9 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 	// If type is a file
 	if d.Type().IsRegular() && f.isMatch(name, ctx) {
 		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
-		if !opts.Peek {
-			fmt.Println()
-		}
+		// if !f.Reported {
+		// 	fmt.Println()
+		// }
 
 		return nil
 	}
@@ -35,9 +35,9 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 	if d.Type()&os.ModeSymlink != 0 && f.isMatch(name, ctx) {
 		symlink = true
 		f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
-		if !opts.Peek {
-			fmt.Println()
-		}
+		// if !f.Reported {
+		// 	fmt.Println()
+		// }
 
 		return nil
 	}
@@ -53,9 +53,9 @@ func (f *Finder) handleScan(d fs.DirEntry, subPath, rootPath string, ctx ScanCon
 
 		if f.isMatch(name, ctx) {
 			f.emitMatch(name, subPath, ctx.MatchesChan, opts, symlink)
-			if !opts.Peek {
-				fmt.Println()
-			}
+			// if !f.Reported {
+			// 	fmt.Println()
+			// }
 			return fs.SkipDir
 		}
 
@@ -144,9 +144,13 @@ func (f Finder) shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 
 // Helper function to print and send matches to channel
 func (f *Finder) emitMatch(name, path string, matchesChan chan string, opts options.Options, symlink bool) {
-	if opts.Verbosity && !opts.Peek && !symlink {
+	if f.Reported {
+		return
+	}
+
+	if opts.Verbosity && !symlink {
 		log.Printf("Match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
-	} else if opts.Verbosity && !opts.Peek && symlink {
+	} else if opts.Verbosity && symlink {
 		log.Printf("Symlink match %s FOUND at: %s", pfmt.ApplyColor(name, 2), pfmt.ApplyColor(path, 3))
 	}
 
