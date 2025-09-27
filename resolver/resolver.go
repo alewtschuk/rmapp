@@ -28,6 +28,7 @@ type Resolver struct {
 	Options       options.Options // resolver options
 	Deleter       deleter.Deleter // deleter struct for handling file removal
 	Reported      bool            // resolved if peek or size is true
+	BundleOnly    bool            // holds if only the bundle will be removed
 }
 
 // Creates resolver struct and populates fields
@@ -55,6 +56,7 @@ func NewResolver(app string, opts options.Options) *Resolver {
 		Options:       opts,
 		Deleter:       deleter.NewDeleter(finder.MatchedPaths, opts),
 		Reported:      isReported,
+		BundleOnly:    opts.BundleOnly,
 	}
 
 	return resolver
