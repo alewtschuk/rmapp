@@ -145,6 +145,7 @@ func (f Finder) shouldSkipDir(name string, depth int, ctx ScanContext) bool {
 // Helper function to print and send matches to channel
 func (f *Finder) emitMatch(name, path string, matchesChan chan string, opts options.Options, symlink bool) {
 	if f.Reported {
+		matchesChan <- path
 		return
 	}
 
