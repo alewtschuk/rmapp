@@ -188,7 +188,13 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 	matchesChan := make(chan string)
 	wg := sync.WaitGroup{}
 
-	for _, rootPath := range f.AllSearchPaths() {
+	searchPaths := f.AllSearchPaths()
+
+	if opts.BundleOnly { // if only the bundle is going to be removed only search the main directories
+		searchPaths = []string{f.OSMain.RootApplicationsPath, f.OSMain.UserApplicationsPath}
+	}
+
+	for _, rootPath := range searchPaths {
 		wg.Add(1)
 
 		go func(rootPath string) {
