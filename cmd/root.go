@@ -185,13 +185,13 @@ func getVersion() {
 // Checks argument compatibility
 func checkArgs() {
 	if isPeek && isForce {
-		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...", 9)
+		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek'. Please choose one argument and run again...", 9)
 		fmt.Println()
 		os.Exit(0)
 	}
 
 	if isSize && isForce {
-		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--size' please run again with one or the other...", 9)
+		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--size'. Please choose one argument and run again...", 9)
 		fmt.Println()
 		os.Exit(0)
 	}
@@ -213,29 +213,23 @@ func checkArgs() {
 	}
 
 	if isPeek && isBundleOnly {
-		pfmt.Printcln("Incompatible args '--peek' and '--bundle' please run again with one or the other...", 9)
+		pfmt.Printcln("[rmapp] Incompatible args '--peek' and '--bundle'. Please choose one argument and run again...", 9)
 		os.Exit(0)
 	}
 
 	if isLogical && isBundleOnly {
-		pfmt.Printcln("Incompatible args '--peek' and '--bundle' please run again with one or the other...", 9)
+		pfmt.Printcln("[rmapp] Incompatible args '--peek' and '--bundle'. Please choose one argument and run again...", 9)
 		os.Exit(0)
 	}
 
-	//-b or --bundle
-	if isBundleOnly && isPeek {
-		fmt.Println(pfmt.ApplyColor("Error: Cannot use --peek with --bundle", 1))
-		os.Exit(1)
-	}
-
 	if isBundleOnly && isSize {
-		fmt.Println(pfmt.ApplyColor("Error: Cannot use --size with --bundle", 1))
-		os.Exit(1)
+		fmt.Println(pfmt.ApplyColor("[rmapp] Incompatible args '--size' and '--bundle'. Please choose one argument and run again...", 9))
+		os.Exit(0)
 	}
 
 	//-v or --version
 	if versionOpt && (isForce || isPeek || isSize || isLogical || isVerbose) {
-		fmt.Println(pfmt.ApplyColor("Error: --version cannot be used with other flags", 1))
-		os.Exit(1)
+		fmt.Println(pfmt.ApplyColor("[rmapp] Incompatible args '--version' cannot be used with other flags", 9))
+		os.Exit(0)
 	}
 }
