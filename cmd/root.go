@@ -218,7 +218,7 @@ func checkArgs() {
 	}
 
 	if isLogical && isBundleOnly {
-		pfmt.Printcln("[rmapp] Incompatible args '--peek' and '--bundle'. Please choose one argument and run again...", 9)
+		pfmt.Printcln("[rmapp] Incompatible args '--logical' and '--bundle'. Please choose one argument and run again...", 9)
 		os.Exit(0)
 	}
 
