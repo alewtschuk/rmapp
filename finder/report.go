@@ -20,7 +20,11 @@ type MatchMeta struct {
 }
 
 // Generates the report for when program is called with --peek
-func GenerateReport(matches []string, appName string, opts options.Options) {
+func GeneratePeekReport(matches []string, appName string, opts options.Options) {
+	if len(matches) == 0 {
+		fmt.Printf("Found 0 files for %s\n", appName)
+		return
+	}
 
 	var (
 		size              int64
@@ -33,96 +37,69 @@ func GenerateReport(matches []string, appName string, opts options.Options) {
 		printLineStripped string
 	)
 
-	switch {
-	case opts.Peek:
-		if len(matches) == 0 {
-			fmt.Printf("Found 0 files for %s\n", appName)
-			return
+	for _, match := range matches {
+		if opts.Logical {
+			size = getLogicalSize(match)
+		} else {
+			size = GetDiskSize(match)
+		}
+		totalSize += size
+		numFiles++
+
+		matchInfo, err := os.Lstat(match)
+		if err != nil {
+			var pathError *os.PathError
+			if errors.As(err, &pathError) {
+				fmt.Printf("%s %s", pfmt.ApplyColor("[rmapp] path error at match:", 3), match)
+				continue
+			}
 		}
 
-		for _, match := range matches {
-			if opts.Logical {
-				size = getLogicalSize(match)
-			} else {
-				size = GetDiskSize(match)
-			}
-			totalSize += size
-			numFiles++
-
-			matchInfo, err := os.Lstat(match)
-			if err != nil {
-				var pathError *os.PathError
-				if errors.As(err, &pathError) {
-					fmt.Printf("%s %s", pfmt.ApplyColor("[rmapp] path error at match:", 3), match)
-					continue
-				}
-			}
-
-			if matchInfo.Mode()&os.ModeSymlink != 0 {
-				symlink = true
-			} else {
-				symlink = false
-			}
-
-			sizeStr := FormatSize(size)
-			appColored := pfmt.ApplyColor(appName, 2)
-			pathColored := pfmt.ApplyColor(match, 3)
-
-			if !symlink {
-				printLine = fmt.Sprintf("• Match %s FOUND at: %s", appColored, pathColored)
-				printLineStripped = fmt.Sprintf("• Match %s FOUND at: %s", appName, match)
-			} else {
-				printLine = fmt.Sprintf("• Symlink match %s FOUND at: %s", appColored, pathColored)
-				printLineStripped = fmt.Sprintf("• Symlink match %s FOUND at: %s", appName, match)
-			}
-
-			if len(printLineStripped) > maxLineWidth {
-				maxLineWidth = len(printLineStripped)
-			}
-
-			metas = append(metas,
-				MatchMeta{
-					Path:      match,
-					SizeStr:   sizeStr,
-					PrintLine: printLine,
-					Size:      size,
-				})
+		if matchInfo.Mode()&os.ModeSymlink != 0 {
+			symlink = true
+		} else {
+			symlink = false
 		}
 
-		// Sort the metas by size in descending order
-		sort.SliceStable(metas, func(i, j int) bool {
-			return metas[i].Size > metas[j].Size
-		})
+		sizeStr := FormatSize(size)
+		appColored := pfmt.ApplyColor(appName, 2)
+		pathColored := pfmt.ApplyColor(match, 3)
 
-		fmt.Printf("\nFound %s files for %s\n", pfmt.ApplyColor(fmt.Sprintf("%d", numFiles), 3), appName)
-
-		// Print all formatted
-		for _, meta := range metas {
-			lineStripped := StripColor(meta.PrintLine)
-			padding := maxLineWidth - len(lineStripped)
-			fmt.Printf("%s%s %s\n", meta.PrintLine, strings.Repeat(" ", padding), meta.SizeStr)
+		if !symlink {
+			printLine = fmt.Sprintf("• Match %s FOUND at: %s", appColored, pathColored)
+			printLineStripped = fmt.Sprintf("• Match %s FOUND at: %s", appName, match)
+		} else {
+			printLine = fmt.Sprintf("• Symlink match %s FOUND at: %s", appColored, pathColored)
+			printLineStripped = fmt.Sprintf("• Symlink match %s FOUND at: %s", appName, match)
 		}
 
-		fmt.Printf("→ Total: %s would be freed\n\n", FormatSize(totalSize))
-		fmt.Println("Run again without -p '--peek' to Trash files or with -f '--force' to delete files")
-
-	case opts.Size:
-		if len(matches) == 0 {
-			fmt.Printf("Found 0 files for %s\n", appName)
-			return
+		if len(printLineStripped) > maxLineWidth {
+			maxLineWidth = len(printLineStripped)
 		}
 
-		for _, match := range matches {
-			if opts.Logical {
-				size = getLogicalSize(match)
-			} else {
-				size = GetDiskSize(match)
-			}
-			totalSize += size
-		}
-
-		fmt.Printf("%s total size: %s\n\n", appName, FormatSize(totalSize))
-		fmt.Println("Run again without -s '--size' to Trash files or with -f '--force' to delete files")
+		metas = append(metas,
+			MatchMeta{
+				Path:      match,
+				SizeStr:   sizeStr,
+				PrintLine: printLine,
+				Size:      size,
+			})
 	}
 
+	// Sort the metas by size in descending order
+	sort.SliceStable(metas, func(i, j int) bool {
+		return metas[i].Size > metas[j].Size
+	})
+
+	fmt.Printf("\nFound %s files for %s\n", pfmt.ApplyColor(fmt.Sprintf("%d", numFiles), 3), appName)
+
+	// Print all formatted
+	for _, meta := range metas {
+		lineStripped := StripColor(meta.PrintLine)
+		padding := maxLineWidth - len(lineStripped)
+		fmt.Printf("%s%s %s\n", meta.PrintLine, strings.Repeat(" ", padding), meta.SizeStr)
+	}
+
+	fmt.Printf("→ Total: %s would be freed\n\n", FormatSize(totalSize))
+	fmt.Println("Run again without -p '--peek' to Trash files or with -f '--force' to delete files")
 }

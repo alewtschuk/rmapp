@@ -27,13 +27,11 @@ var banner string = pfmt.ApplyColor(`
    \|__|     \/__/     \/__/              `, 33)
 
 var (
-	isVerbose    bool
-	isForce      bool
-	isPeek       bool
-	isLogical    bool
-	versionOpt   bool
-	isSize       bool
-	isBundleOnly bool
+	verbose    bool
+	force      bool
+	peek       bool
+	logical    bool
+	versionOpt bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -78,38 +76,19 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		appName := args[0]
 		var opts options.Options
 		// Enables logical file size if peek is used
-		switch {
-
-		case isPeek:
+		if peek {
 			opts = options.Options{
-				Verbosity: isVerbose,
-				Mode:      isForce,
-				Peek:      isPeek,
-				Logical:   isLogical,
+				Verbosity: verbose,
+				Mode:      force,
+				Peek:      peek,
+				Logical:   logical,
 			}
-
-		case isSize:
+		} else {
 			opts = options.Options{
-				Verbosity: isVerbose,
-				Mode:      isForce,
-				Peek:      isPeek,
-				Logical:   isLogical,
-				Size:      isSize,
+				Verbosity: verbose,
+				Mode:      force,
+				Peek:      peek,
 			}
-		case isBundleOnly:
-			opts = options.Options{
-				Verbosity:  isVerbose,
-				Mode:       isForce,
-				Peek:       isPeek,
-				BundleOnly: isBundleOnly,
-			}
-		default:
-			opts = options.Options{
-				Verbosity: isVerbose,
-				Mode:      isForce,
-				Peek:      isPeek,
-			}
-
 		}
 
 		if !opts.Verbosity {
@@ -120,10 +99,9 @@ in your system, securely, with file size reporting, and default safe trashing.`,
 		}
 		// Create and populate new resolver
 		instance := resolver.NewResolver(appName, opts)
-		if instance.Reported {
+		if opts.Peek {
 			os.Exit(0)
 		}
-
 		instance.Deleter.Delete()
 
 	},
@@ -161,17 +139,15 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolVarP(&isForce, "force", "f", false,
+	rootCmd.Flags().BoolVarP(&force, "force", "f", false,
 		fmt.Sprintf("Sets program force between %s and %s",
 			pfmt.ApplyColor("Trash (Default, Safe, RECOVERABLE)", 2),
 			pfmt.ApplyColor("Force (Full file removal, Unsafe, UNRECOVERABLE)", 9)),
 	)
-	rootCmd.Flags().BoolVarP(&isVerbose, "verbose", "v", false, "Show detailed output")
-	rootCmd.Flags().BoolVarP(&isPeek, "peek", "p", false, "Peek matched files")
-	rootCmd.Flags().BoolVarP(&isLogical, "logical", "l", false, "Show logical file size")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed output")
+	rootCmd.Flags().BoolVarP(&peek, "peek", "p", false, "Peek matched files")
+	rootCmd.Flags().BoolVarP(&logical, "logical", "l", false, "Show logical file size")
 	rootCmd.Flags().BoolVar(&versionOpt, "version", false, "Show rmapp version")
-	rootCmd.Flags().BoolVarP(&isSize, "size", "s", false, "Show the total size of the application's data")
-	rootCmd.Flags().BoolVarP(&isBundleOnly, "bundle", "b", false, "Removes only the Bundle ID. Equivalent to dragging to trash")
 }
 
 // Prints version
@@ -182,54 +158,22 @@ func getVersion() {
 	}
 }
 
-// Checks argument compatibility
+// Checks if peeka and force is enabled, exits accordingly
 func checkArgs() {
-	if isPeek && isForce {
-		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek'. Please choose one argument and run again...", 9)
+	if peek && force {
+		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--peek' please run again with one or the other...", 9)
 		fmt.Println()
 		os.Exit(0)
 	}
 
-	if isSize && isForce {
-		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--size'. Please choose one argument and run again...", 9)
-		fmt.Println()
-		os.Exit(0)
-	}
-
-	if isLogical && isForce {
+	if logical && force {
 		pfmt.Printcln("[rmapp] Incompatible args '--force' and '--logical'. '--logical' can only be run in peek context. \nPlease run again with '--force' alone or '--logical' and '--peek'...", 9)
 		fmt.Println()
 		os.Exit(0)
 	}
 
-	if !(isPeek || isSize) && isLogical {
+	if !peek && logical {
 		pfmt.Printcln("[rmapp] Incompatible args '--logical' must be used in '--peek' context. Please run again with '--peek' enabled...", 9)
-		os.Exit(0)
-	}
-
-	if isPeek && isSize {
-		pfmt.Printcln("[rmapp] Incompatible args '--size' is shown in '--peek'. Please choose one argument and run again...", 9)
-		os.Exit(0)
-	}
-
-	if isPeek && isBundleOnly {
-		pfmt.Printcln("[rmapp] Incompatible args '--peek' and '--bundle'. Please choose one argument and run again...", 9)
-		os.Exit(0)
-	}
-
-	if isLogical && isBundleOnly {
-		pfmt.Printcln("[rmapp] Incompatible args '--logical' and '--bundle'. Please choose one argument and run again...", 9)
-		os.Exit(0)
-	}
-
-	if isBundleOnly && isSize {
-		fmt.Println(pfmt.ApplyColor("[rmapp] Incompatible args '--size' and '--bundle'. Please choose one argument and run again...", 9))
-		os.Exit(0)
-	}
-
-	//-v or --version
-	if versionOpt && (isForce || isPeek || isSize || isLogical || isVerbose) {
-		fmt.Println(pfmt.ApplyColor("[rmapp] Incompatible args '--version' cannot be used with other flags", 9))
 		os.Exit(0)
 	}
 }
