@@ -51,6 +51,8 @@ func (d *Deleter) Delete() error {
 		totalSize += size
 	}
 
+	log.Println("\n")
+
 	switch d.opts.Mode {
 	case false: // default trashing behavior
 		for _, match := range d.matches {
