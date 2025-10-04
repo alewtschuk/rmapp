@@ -27,7 +27,8 @@ type Resolver struct {
 	Finder        finder.Finder   // finder to look for files using app info
 	Options       options.Options // resolver options
 	Deleter       deleter.Deleter // deleter struct for handling file removal
-	Peeked        bool            // resolved in peek mode
+	Reported      bool            // resolved if peek or size is true
+	BundleOnly    bool            // holds if only the bundle will be removed
 }
 
 // Creates resolver struct and populates fields
@@ -38,7 +39,15 @@ func NewResolver(app string, opts options.Options) *Resolver {
 		log.Println("\nApplication to delete: ", pfmt.ApplyColor(app, 2))
 		log.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
 	}
+
+	// Sets if a report and exit is needed
+	var isReported bool = false
+	if opts.Peek || opts.Size {
+		isReported = true
+	}
+
 	finder := finder.NewFinder(app, getBundleID((mdlsReturnStr)), opts) // uses app name over .app to ensure propper name based searching
+
 	resolver := &Resolver{
 		AppName:       appName,
 		MdlsReturnStr: mdlsReturnStr,
@@ -46,8 +55,10 @@ func NewResolver(app string, opts options.Options) *Resolver {
 		Finder:        finder,
 		Options:       opts,
 		Deleter:       deleter.NewDeleter(finder.MatchedPaths, opts),
-		Peeked:        opts.Peek,
+		Reported:      isReported,
+		BundleOnly:    opts.BundleOnly,
 	}
+
 	return resolver
 }
 
