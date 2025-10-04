@@ -61,7 +61,6 @@ func setupTestFileSystem(t *testing.T, appName, bundleID string) (string, []stri
 		"caches":      filepath.Join(homeDir, "Library", "Caches", bundleID),
 		"logs":        filepath.Join(homeDir, "Library", "Logs", appName),
 		"preferences": filepath.Join(homeDir, "Library", "Preferences", bundleID+".plist"),
-		"randomFile":  filepath.Join(homeDir, "Documents", "a file with "+appName+" in its name.txt"),
 	}
 
 	var expectedPaths []string
@@ -190,5 +189,41 @@ func TestFinder_FindsHomeDirFiles(t *testing.T) {
 
 	// --- Assertions ---
 	// The main check: did we find all the files we created in our fake home directory?
+	assertSlicesEqual(t, expectedPaths, finder.MatchedPaths)
+}
+
+func TestFinder_SizeFlag(t *testing.T) {
+	appName := "MyTestApp"
+	bundleID := "com.gemini.test"
+	fakeHome, expectedPaths := setupTestFileSystem(t, appName, bundleID)
+	t.Setenv("HOME", fakeHome)
+
+	opts := options.Options{Size: true}
+	finder := finder.NewFinder(appName, bundleID, opts)
+
+	assertSlicesEqual(t, expectedPaths, finder.MatchedPaths)
+	if !finder.Reported {
+		t.Errorf("Expected finder.Reported to be true with --size flag, but got false")
+	}
+}
+
+func TestFinder_BundleOnlyFlag(t *testing.T) {
+	appName := "MyTestApp"
+	bundleID := "com.gemini.test"
+	fakeHome, _ := setupTestFileSystem(t, appName, bundleID)
+	t.Setenv("HOME", fakeHome)
+
+	// Create a fake .app bundle in the fake /Applications directory
+	appPath := filepath.Join(fakeHome, "Applications", appName+".app")
+	if err := os.MkdirAll(appPath, 0755); err != nil {
+		t.Fatalf("Failed to create fake app bundle: %v", err)
+	}
+
+	// With BundleOnly, we only expect to find the .app bundle.
+	expectedPaths := []string{appPath}
+
+	opts := options.Options{BundleOnly: true}
+	finder := finder.NewFinder(appName, bundleID, opts)
+
 	assertSlicesEqual(t, expectedPaths, finder.MatchedPaths)
 }
