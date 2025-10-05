@@ -33,6 +33,8 @@ in your system, securely, with file size reporting, and default safe trashing. N
 - 💥 Allows for complete unsafe deletion via `--force`
 - 📂 Preview the size of and the discovered files via `--peek`
 - 💾 Can choose to view files with logical or disk size values
+- 📦 Can remove just the bundle via `--bundle`
+- 📊 Can check application size via `--size`
 - 💻 Built natively in Go for MacOS with Objective-C interop
 - 🔐 Works with MacOS system security to safely remove protected files with user approval
 - **MORE TO COME !!! 🎉**
