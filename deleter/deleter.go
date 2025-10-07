@@ -55,51 +55,44 @@ func (d *Deleter) Delete() error {
 
 	switch d.opts.Mode {
 	case false: // default trashing behavior
+		var privilegedTrashPaths []string
+		mu := sync.Mutex{}
+
 		for _, match := range d.matches {
 			wg.Add(1)
-			go func() error {
+			go func(path string) {
 				defer wg.Done()
-				err := exists(match)
-				if err != nil {
-					return err
+				if err := exists(path); err != nil {
+					return
 				}
 
 				if isSudo {
-					appleScript := fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match) //setup applescript string
-					cmd := exec.Command("sudo", "-u", sudoUser, "osascript", "-e", appleScript)
-					err := cmd.Run()
-					if err != nil {
-						fmt.Println(pfmt.ApplyColor(fmt.Sprintf("[rmapp] ERROR: privileged trash for %s failed: %v", match, err), 9))
-						// Even if this fails, we should continue with other files.
-						return nil
-					}
-
-					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-
-				} else {
-					success := darwin.MoveFileToTrash(match)
-					if !success {
-						fmt.Println(pfmt.ApplyColor("WARN: file "+match+" requires elevated permissions to remove", 3))
-						fmt.Println("Attempting trashing via osascript...")
-						cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, match))
-						err = cmd.Run()
-						if err != nil {
-							fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: file "+match+" unable to be moved to Trash", 9))
-						}
-
-						log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-
-						return err
-					}
-
-					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(match, 3))
-
+					// If running with sudo, all trash operations are likely privileged
+					mu.Lock()
+					privilegedTrashPaths = append(privilegedTrashPaths, path)
+					mu.Unlock()
+					return
 				}
 
-				return nil
-			}()
+				// Try standard, non-privileged trash first
+				if success := darwin.MoveFileToTrash(path); success {
+					log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(path, 3))
+				} else {
+					// Assume elevated permissions if fails
+					mu.Lock()
+					privilegedTrashPaths = append(privilegedTrashPaths, path)
+					mu.Unlock()
+				}
+			}(match)
 		}
 		wg.Wait()
+
+		if len(privilegedTrashPaths) > 0 {
+			if err := RunPrivilegedTrash(privilegedTrashPaths, d.opts.Verbosity, sudoUser); err != nil {
+				// The error is already logged in the function, just exit.
+				return err
+			}
+		}
 
 	case true: // -f or --force full removal enabled
 		var protectedPaths []string
@@ -156,6 +149,47 @@ func exists(match string) error {
 		fmt.Println("[rmapp] Error:", err)
 		return err
 	}
+}
+
+// RunPrivilegedTrash moves a list of files/directories to the Trash using AppleScript with elevated privileges.
+func RunPrivilegedTrash(paths []string, verbose bool, sudoUser string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	fmt.Println(pfmt.ApplyColor("WARN: Some files require elevated permissions to be moved to the Trash. Escalating with osascript…", 3))
+
+	var posixFiles []string
+	for _, path := range paths {
+		posixFiles = append(posixFiles, fmt.Sprintf("POSIX file \"%s\"", path))
+	}
+	appleScriptList := fmt.Sprintf("{%s}", strings.Join(posixFiles, ", "))
+
+	// This script tells Finder to move the list of files to the trash
+	// It will prompt for a password if necessary
+	appleScript := fmt.Sprintf(`tell application "Finder" to delete %s`, appleScriptList)
+
+	var cmd *exec.Cmd
+	if sudoUser != "" {
+		// When running with sudo, execute the AppleScript as the original user
+		// This ensures the files go to the correct user's trash can
+		cmd = exec.Command("sudo", "-u", sudoUser, "osascript", "-e", appleScript)
+	} else {
+		// When not running with sudo, execute as the current user
+		cmd = exec.Command("osascript", "-e", appleScript)
+	}
+
+	if err := cmd.Run(); err != nil {
+		fmt.Println(pfmt.ApplyColor("[rmapp] ERROR: privileged trash failed. Some files may not have been moved.", 9))
+		return err
+	}
+
+	if verbose {
+		for _, path := range paths {
+			log.Printf("Successfully moved %s to Trash 🗑️\n", pfmt.ApplyColor(path, 3))
+		}
+	}
+	return nil
 }
 
 // RunPrivilegedDelete deletes a list of files/directories using AppleScript with elevated privileges.
