@@ -25,7 +25,7 @@ in your system, securely, with file size reporting, and default safe trashing. N
 
 **Dependancies:** ![Cobra](https://img.shields.io/badge/passing%20-%20passing?style=flat&logo=github&logoColor=%23969DA4&label=cobra) ![Dsutils](https://github.com/alewtschuk/dsutils/actions/workflows/dsutils.yml/badge.svg) ![pfmt](https://github.com/alewtschuk/pfmt/actions/workflows/pfmt.yml/badge.svg)
 
-
+**Read the technical breakdown here: [Devlog](https://digitalstatic.substack.com/p/engineering-appcleaner-for-the-terminal)**
 
 ## 🚀 Features
 
