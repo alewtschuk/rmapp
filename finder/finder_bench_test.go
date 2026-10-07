@@ -50,6 +50,34 @@ func BenchmarkFindMatches(b *testing.B) {
 	}
 }
 
+// Sweeps the worker pool size over one large fixture to find where added
+// concurrency stops paying off. 29 workers is one per root, the old behavior
+func BenchmarkFindMatchesWorkers(b *testing.B) {
+	f, expected, entries := buildFixture(b, 1000, 64)
+	opts := options.Options{}
+
+	for _, workers := range []int{1, 2, 4, 8, 29} {
+		b.Run(fmt.Sprintf("workers=%d", workers), func(b *testing.B) {
+			f.Workers = workers
+
+			matches, err := f.FindMatches(benchAppName, benchBundleID, opts)
+			if err != nil {
+				b.Fatal(err)
+			}
+			slices.Sort(matches)
+			if !slices.Equal(matches, expected) {
+				b.Fatalf("found %d paths, expected %d", len(matches), len(expected))
+			}
+
+			for b.Loop() {
+				f.FindMatches(benchAppName, benchBundleID, opts)
+			}
+
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N)/float64(entries), "ns/entry")
+		})
+	}
+}
+
 // Builds a fake filesystem under a temp dir mirroring the real search roots
 //
 // Returns the finder pointed at it, the sorted paths it should match
