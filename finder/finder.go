@@ -3,6 +3,7 @@ package finder
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -85,44 +86,8 @@ type UserPaths struct {
 func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 	// Extract home directory for use in user identification if ran as sudo
 	home := os.Getenv("HOME")
-	finder := Finder{
-		OSMain: OSMainPaths{
-			RootApplicationsPath: "/Applications",
-			UserApplicationsPath: fmt.Sprintf("%s/Applications", home),
-		},
-		System: SystemPaths{
-			SystemSupportFilesPath:      "/Library/Application Support",
-			SystemCrashReports:          "/Library/Application Support/CrashReporter",
-			SystemCaches:                "/Library/Caches",
-			SystemExtensions:            "/Library/Extensions",
-			SystemInternetPlugIns:       "/Library/Internet Plug-Ins",
-			SystemLaunchAgents:          "/Library/LaunchAgents",
-			SystemLaunchDaemons:         "/Library/LaunchDaemons",
-			SystemLogs:                  "/Library/Logs",
-			SystemPrivilegedHelperTools: "/Library/PrivilegedHelperTools",
-			SystemReceipts:              "/var/db/receipts",
-			SystemBin:                   "/usr/local/bin",
-			SystemOpt:                   "/usr/local/opt",
-			SystemSbin:                  "/usr/local/sbin",
-			SystemShare:                 "/usr/local/share",
-			SystemVar:                   "/usr/local/var",
-		},
-		UserPaths: UserPaths{
-			AppSupportFilesPath: fmt.Sprintf("%s/Library/Application Support", home),
-			PreferencesPath:     fmt.Sprintf("%s/Library/Preferences", home),
-			CachesPath:          fmt.Sprintf("%s/Library/Caches", home),
-			ContainersPath:      fmt.Sprintf("%s/Library/Containers", home),
-			SavedStatePath:      fmt.Sprintf("%s/Library/Saved Application State", home),
-			HTTPStorages:        fmt.Sprintf("%s/Library/HTTPStorages", home),
-			GroupContainers:     fmt.Sprintf("%s/Library/Group Containers", home),
-			InternetPlugIns:     fmt.Sprintf("%s/Library/Internet Plug-Ins", home),
-			LaunchAgents:        fmt.Sprintf("%s/Library/LaunchAgents", home),
-			Logs:                fmt.Sprintf("%s/Library/Logs", home),
-			WebKit:              fmt.Sprintf("%s/Library/WebKit", home),
-			ApplicationScripts:  fmt.Sprintf("%s/Library/Application Scripts", home),
-		},
-		Verbosity: opts.Verbosity,
-	}
+	finder := searchLayout("/", home)
+	finder.Verbosity = opts.Verbosity
 
 	if opts.Peek || opts.Size {
 		finder.Reported = true
@@ -136,6 +101,49 @@ func NewFinder(appName string, bundleID string, opts options.Options) Finder {
 	}
 	finder.MatchedPaths = matches
 	return finder
+}
+
+// Returns a Finder whose search paths are laid out under the system root and home directory
+//
+// Allows the search paths to be relocated, e.g. into a fixture directory for testing
+func searchLayout(root, home string) Finder {
+	return Finder{
+		OSMain: OSMainPaths{
+			RootApplicationsPath: filepath.Join(root, "Applications"),
+			UserApplicationsPath: filepath.Join(home, "Applications"),
+		},
+		System: SystemPaths{
+			SystemSupportFilesPath:      filepath.Join(root, "Library/Application Support"),
+			SystemCrashReports:          filepath.Join(root, "Library/Application Support/CrashReporter"),
+			SystemCaches:                filepath.Join(root, "Library/Caches"),
+			SystemExtensions:            filepath.Join(root, "Library/Extensions"),
+			SystemInternetPlugIns:       filepath.Join(root, "Library/Internet Plug-Ins"),
+			SystemLaunchAgents:          filepath.Join(root, "Library/LaunchAgents"),
+			SystemLaunchDaemons:         filepath.Join(root, "Library/LaunchDaemons"),
+			SystemLogs:                  filepath.Join(root, "Library/Logs"),
+			SystemPrivilegedHelperTools: filepath.Join(root, "Library/PrivilegedHelperTools"),
+			SystemReceipts:              filepath.Join(root, "var/db/receipts"),
+			SystemBin:                   filepath.Join(root, "usr/local/bin"),
+			SystemOpt:                   filepath.Join(root, "usr/local/opt"),
+			SystemSbin:                  filepath.Join(root, "usr/local/sbin"),
+			SystemShare:                 filepath.Join(root, "usr/local/share"),
+			SystemVar:                   filepath.Join(root, "usr/local/var"),
+		},
+		UserPaths: UserPaths{
+			AppSupportFilesPath: filepath.Join(home, "Library/Application Support"),
+			PreferencesPath:     filepath.Join(home, "Library/Preferences"),
+			CachesPath:          filepath.Join(home, "Library/Caches"),
+			ContainersPath:      filepath.Join(home, "Library/Containers"),
+			SavedStatePath:      filepath.Join(home, "Library/Saved Application State"),
+			HTTPStorages:        filepath.Join(home, "Library/HTTPStorages"),
+			GroupContainers:     filepath.Join(home, "Library/Group Containers"),
+			InternetPlugIns:     filepath.Join(home, "Library/Internet Plug-Ins"),
+			LaunchAgents:        filepath.Join(home, "Library/LaunchAgents"),
+			Logs:                filepath.Join(home, "Library/Logs"),
+			WebKit:              filepath.Join(home, "Library/WebKit"),
+			ApplicationScripts:  filepath.Join(home, "Library/Application Scripts"),
+		},
+	}
 }
 
 // Returns a string of all available paths to search
