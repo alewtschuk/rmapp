@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/alewtschuk/pfmt"
+	"github.com/alewtschuk/rmapp/darwin"
 	"github.com/alewtschuk/rmapp/deleter"
 	"github.com/alewtschuk/rmapp/finder"
 	"github.com/alewtschuk/rmapp/options"
@@ -21,23 +21,22 @@ import (
 
 // Resolver holds all the information reagarding the application's info
 type Resolver struct {
-	AppName       string          // full .app name to be deleted
-	MdlsReturnStr string          // full return string of the mlds command call
-	BundleID      string          // app's bundle ID
-	Finder        finder.Finder   // finder to look for files using app info
-	Options       options.Options // resolver options
-	Deleter       deleter.Deleter // deleter struct for handling file removal
-	Reported      bool            // resolved if peek or size is true
-	BundleOnly    bool            // holds if only the bundle will be removed
+	AppName    string          // full .app name to be deleted
+	BundleID   string          // app's bundle ID
+	Finder     finder.Finder   // finder to look for files using app info
+	Options    options.Options // resolver options
+	Deleter    deleter.Deleter // deleter struct for handling file removal
+	Reported   bool            // resolved if peek or size is true
+	BundleOnly bool            // holds if only the bundle will be removed
 }
 
 // Creates resolver struct and populates fields
 func NewResolver(app string, opts options.Options) *Resolver {
 	appName := getDotApp(app)
-	mdlsReturnStr := getMdlsIdentifier(appName)
+	bundleID := getBundleID(getAppPath(appName))
 	if opts.Verbosity {
 		log.Println("\nApplication to delete: ", pfmt.ApplyColor(app, 2))
-		log.Print("Resolved Bundle ID: ", pfmt.ApplyColor(getBundleID(mdlsReturnStr), 2), "\n\n")
+		log.Print("Resolved Bundle ID: ", pfmt.ApplyColor(bundleID, 2), "\n\n")
 	}
 
 	// Sets if a report and exit is needed
@@ -46,47 +45,46 @@ func NewResolver(app string, opts options.Options) *Resolver {
 		isReported = true
 	}
 
-	finder := finder.NewFinder(app, getBundleID((mdlsReturnStr)), opts) // uses app name over .app to ensure propper name based searching
+	finder := finder.NewFinder(app, bundleID, opts) // uses app name over .app to ensure propper name based searching
 
 	resolver := &Resolver{
-		AppName:       appName,
-		MdlsReturnStr: mdlsReturnStr,
-		BundleID:      getBundleID(mdlsReturnStr),
-		Finder:        finder,
-		Options:       opts,
-		Deleter:       deleter.NewDeleter(finder.MatchedPaths, opts),
-		Reported:      isReported,
-		BundleOnly:    opts.BundleOnly,
+		AppName:    appName,
+		BundleID:   bundleID,
+		Finder:     finder,
+		Options:    opts,
+		Deleter:    deleter.NewDeleter(finder.MatchedPaths, opts),
+		Reported:   isReported,
+		BundleOnly: opts.BundleOnly,
 	}
 
 	return resolver
 }
 
-// Calls mdls to retrieve the bundle identifier
-// and converts the bundle identifier to a string
-func getMdlsIdentifier(appName string) string {
+var (
+	errAppNotFound = errors.New("app not found")
+	errNoBundleID  = errors.New("bundleid value is empty")
+)
+
+// Resolves the full path to the .app bundle, relative names are
+// resolved against /Applications
+func getAppPath(appName string) string {
 	if !strings.HasPrefix(appName, "/") {
 		appName = fmt.Sprintf("/Applications/%s", appName)
 	}
 
-	out, err := exec.Command("mdls", appName, "-name", "kMDItemCFBundleIdentifier").Output()
-	if err != nil {
-		appName = strings.TrimSuffix(strings.TrimPrefix(appName, "/Applications/"), ".app")
-		fmt.Printf("[rmapp] App %s not found.\n", pfmt.ApplyColor(appName, 2))
-		os.Exit(1)
-	}
-	// Set full mlds output to string
-	mdlsReturnStr := string(out)
-
-	return mdlsReturnStr
+	return appName
 }
 
-// Takes mlds returned kMDItemCFBundleIdentifier
-// string and extracts the bundle id
-func getBundleID(mdlsReturnStr string) string {
-	bundleID, err := extractQuotedSubstring(mdlsReturnStr)
-	if err != nil {
-
+// Retrieves the bundle identifier for the app at appPath, exiting if
+// the app does not exist or has no bundle identifier
+func getBundleID(appPath string) string {
+	bundleID, err := lookupBundleID(appPath)
+	switch err {
+	case errAppNotFound:
+		appName := strings.TrimSuffix(strings.TrimPrefix(appPath, "/Applications/"), ".app")
+		fmt.Printf("[rmapp] App %s not found.\n", pfmt.ApplyColor(appName, 2))
+		os.Exit(1)
+	case errNoBundleID:
 		fmt.Println(pfmt.ApplyColor("[rmapp] Error: BundleId is empty", 9))
 		os.Exit(1)
 	}
@@ -94,16 +92,21 @@ func getBundleID(mdlsReturnStr string) string {
 	return bundleID
 }
 
-// Extracts substring between " delimiter
+// Reads the bundle identifier from the app bundle's Info.plist
 //
-// For use to trim kMDItemCFBundleIdentifier string
-func extractQuotedSubstring(str string) (string, error) {
-	strs := strings.Split(str, "\"")
-	if len(strs) >= 2 {
-		return strs[1], nil
+// Reads the bundle directly rather than querying Spotlight via mdls, which
+// spawns a process and fails if Spotlight has not indexed the app
+func lookupBundleID(appPath string) (string, error) {
+	if _, err := os.Stat(appPath); err != nil {
+		return "", errAppNotFound
 	}
 
-	return "", errors.New("bundleid value is empty")
+	bundleID, ok := darwin.GetBundleIdentifier(appPath)
+	if !ok || bundleID == "" {
+		return "", errNoBundleID
+	}
+
+	return bundleID, nil
 }
 
 // Checks if the input app name contains ".app"

@@ -13,6 +13,7 @@ package darwin
 
 extern bool MoveToTrash(const char *path);
 extern long long GetFileAllocatedSize(const char *path);
+extern char *BundleIdentifier(const char *path);
 */
 import "C"
 import "unsafe"
@@ -32,4 +33,19 @@ func GetDiskUsageAtPath(path string) int64 {
 	defer C.free(unsafe.Pointer(cPath))
 
 	return int64(C.GetDiskUsageAtPath(cPath))
+}
+
+// GetBundleIdentifier reads the CFBundleIdentifier from the Info.plist of the
+// bundle at path, returning false if the path is not a bundle or has no identifier
+func GetBundleIdentifier(path string) (string, bool) {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+
+	cBundleID := C.BundleIdentifier(cPath)
+	if cBundleID == nil {
+		return "", false
+	}
+	defer C.free(unsafe.Pointer(cBundleID))
+
+	return C.GoString(cBundleID), true
 }

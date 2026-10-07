@@ -23,6 +23,23 @@ bool MoveToTrash(const char *path) {
     }
 }
 
+// Gets the bundle identifier from the bundle's Info.plist
+//
+// Returns a heap allocated copy the caller must free, or NULL if not found
+char *BundleIdentifier(const char *path) {
+    @autoreleasepool {
+        NSString *pathStr = [NSString stringWithUTF8String:path];
+        NSBundle *bundle = [NSBundle bundleWithPath:pathStr];
+        NSString *bundleID = [bundle bundleIdentifier];
+
+        if (bundleID == nil) {
+            return NULL;
+        }
+
+        return strdup([bundleID UTF8String]);
+    }
+}
+
 // Gets the actual disk usage size of a file
 uint64_t GetDiskUsageAtPath(const char *path) {
     @autoreleasepool {

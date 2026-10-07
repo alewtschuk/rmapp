@@ -111,27 +111,51 @@ func TestGetDotApp(t *testing.T) {
 	}
 }
 
-func TestExtractQuotedSubstring(t *testing.T) {
+// makeTestBundle creates a fake .app bundle whose Info.plist holds the given contents.
+// No Info.plist is written if plist is empty.
+func makeTestBundle(t *testing.T, name, plist string) string {
+	t.Helper()
+	appPath := filepath.Join(t.TempDir(), name)
+	contents := filepath.Join(appPath, "Contents")
+	if err := os.MkdirAll(contents, 0755); err != nil {
+		t.Fatalf("Failed to create bundle dir: %v", err)
+	}
+	if plist != "" {
+		if err := os.WriteFile(filepath.Join(contents, "Info.plist"), []byte(plist), 0644); err != nil {
+			t.Fatalf("Failed to write Info.plist: %v", err)
+		}
+	}
+	return appPath
+}
+
+func TestLookupBundleID(t *testing.T) {
+	const plistWithID = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.acme.studio</string></dict></plist>`
+	const plistWithoutID = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>CFBundleName</key><string>Acme Studio</string></dict></plist>`
+
 	tests := []struct {
-		input    string
+		name     string
+		appPath  string
 		expected string
-		hasError bool
+		err      error
 	}{
-		{`kMDItemCFBundleIdentifier = "com.apple.Safari"`, "com.apple.Safari", false},
-		{`"just.quoted.string"`, "just.quoted.string", false},
-		{`no quotes here`, "", true},
-		{`"incomplete quote`, "", true},
-		{`""`, "", false},
+		{"BundleWithID", makeTestBundle(t, "Acme Studio.app", plistWithID), "com.acme.studio", nil},
+		{"BundleWithoutID", makeTestBundle(t, "Acme Studio.app", plistWithoutID), "", errNoBundleID},
+		{"BundleWithoutInfoPlist", makeTestBundle(t, "Acme Studio.app", ""), "", errNoBundleID},
+		{"MissingApp", filepath.Join(t.TempDir(), "Missing.app"), "", errAppNotFound},
 	}
 
 	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			result, err := extractQuotedSubstring(test.input)
-			if (err != nil) != test.hasError {
-				t.Errorf("extractQuotedSubstring(%q) returned error %v, want error=%v", test.input, err, test.hasError)
+		t.Run(test.name, func(t *testing.T) {
+			result, err := lookupBundleID(test.appPath)
+			if err != test.err {
+				t.Errorf("lookupBundleID(%q) returned error %v, want %v", test.appPath, err, test.err)
 			}
 			if result != test.expected {
-				t.Errorf("extractQuotedSubstring(%q) = %q, want %q", test.input, result, test.expected)
+				t.Errorf("lookupBundleID(%q) = %q, want %q", test.appPath, result, test.expected)
 			}
 		})
 	}
