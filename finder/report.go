@@ -20,7 +20,7 @@ type MatchMeta struct {
 }
 
 // Generates the report for when program is called with --peek
-func GenerateReport(matches []string, appName string, opts options.Options) {
+func GenerateReport(matches []string, sizes map[string]int64, appName string, opts options.Options) {
 
 	var (
 		size              int64
@@ -41,11 +41,7 @@ func GenerateReport(matches []string, appName string, opts options.Options) {
 		}
 
 		for _, match := range matches {
-			if opts.Logical {
-				size = getLogicalSize(match)
-			} else {
-				size = GetDiskSize(match)
-			}
+			size = sizes[match]
 			totalSize += size
 			numFiles++
 
@@ -113,11 +109,7 @@ func GenerateReport(matches []string, appName string, opts options.Options) {
 		}
 
 		for _, match := range matches {
-			if opts.Logical {
-				size = getLogicalSize(match)
-			} else {
-				size = GetDiskSize(match)
-			}
+			size = sizes[match]
 			totalSize += size
 		}
 

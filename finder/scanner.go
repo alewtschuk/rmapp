@@ -126,6 +126,14 @@ func getLogicalSize(path string) int64 {
 	return size
 }
 
+// Gets the size in bytes of the path, logical or on disk depending on opts
+func getSize(path string, opts options.Options) int64 {
+	if opts.Logical {
+		return getLogicalSize(path)
+	}
+	return GetDiskSize(path)
+}
+
 // Gets the file size in bytes
 func GetDiskSize(path string) int64 {
 	return darwin.GetDiskUsageAtPath(path)

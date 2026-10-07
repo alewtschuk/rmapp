@@ -177,7 +177,7 @@ func TestDeleterModes(t *testing.T) {
 			// Note: The SafeMode test will move temporary files to the system's Trash.
 			filesToDelete := makeTestFiles(t, 3, "test-deleter")
 			opts := options.Options{Mode: tc.isUnsafe}
-			d := deleter.NewDeleter(filesToDelete, opts)
+			d := deleter.NewDeleter(filesToDelete, nil, opts)
 
 			if err := d.Delete(); err != nil {
 				t.Fatalf("Delete failed: %v", err)

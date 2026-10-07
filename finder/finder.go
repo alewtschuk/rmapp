@@ -36,6 +36,7 @@ type Finder struct {
 	System       SystemPaths
 	UserPaths    UserPaths
 	MatchedPaths []string
+	MatchedSizes map[string]int64 // size in bytes of each matched path
 	Verbosity    bool
 	Reported     bool
 }
@@ -239,13 +240,28 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		close(matchesChan)
 	}()
 
-	// Append match to matches for all matches in channel
+	// Append match to matches for all matches in channel, sizing each
+	// match concurrently as it is found rather than after the search
+	sizes := make(map[string]int64)
+	sizesMu := sync.Mutex{}
+	sizesWg := sync.WaitGroup{}
 	for match := range matchesChan {
 		matches = append(matches, match)
+
+		sizesWg.Add(1)
+		go func(path string) {
+			defer sizesWg.Done()
+			size := getSize(path, opts)
+			sizesMu.Lock()
+			sizes[path] = size
+			sizesMu.Unlock()
+		}(match)
 	}
+	sizesWg.Wait()
+	f.MatchedSizes = sizes
 
 	if opts.Peek || opts.Size {
-		GenerateReport(matches, appName, opts)
+		GenerateReport(matches, sizes, appName, opts)
 	}
 
 	return matches, err

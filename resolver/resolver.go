@@ -52,7 +52,7 @@ func NewResolver(app string, opts options.Options) *Resolver {
 		BundleID:   bundleID,
 		Finder:     finder,
 		Options:    opts,
-		Deleter:    deleter.NewDeleter(finder.MatchedPaths, opts),
+		Deleter:    deleter.NewDeleter(finder.MatchedPaths, finder.MatchedSizes, opts),
 		Reported:   isReported,
 		BundleOnly: opts.BundleOnly,
 	}

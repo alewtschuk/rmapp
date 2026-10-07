@@ -18,13 +18,15 @@ import (
 // Define the Deleter and its fields
 type Deleter struct {
 	matches []string
+	sizes   map[string]int64 // sizes found by the finder, measured here if missing
 	opts    options.Options
 }
 
 // Creates and returns the Deleter
-func NewDeleter(matches []string, opts options.Options) Deleter {
+func NewDeleter(matches []string, sizes map[string]int64, opts options.Options) Deleter {
 	return Deleter{
 		matches: matches,
+		sizes:   sizes,
 		opts:    opts,
 	}
 }
@@ -47,7 +49,10 @@ func (d *Deleter) Delete() error {
 	}
 
 	for _, match := range d.matches {
-		size := finder.GetDiskSize(match)
+		size, ok := d.sizes[match]
+		if !ok {
+			size = finder.GetDiskSize(match)
+		}
 		totalSize += size
 	}
 
