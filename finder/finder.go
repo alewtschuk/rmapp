@@ -188,9 +188,8 @@ func (f Finder) AllSearchPaths() []string {
 // build a string slice of matched paths that will be flagged for deletion
 func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]string, error) {
 	var (
-		err         error
-		matches     []string
-		searchDepth int
+		err     error
+		matches []string
 	)
 	tokenizedApp := tokenize(strings.ToLower(appName))
 	matchesChan := make(chan string)
@@ -207,10 +206,10 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 
 		go func(rootPath string) {
 			defer wg.Done()
+			// Declared per goroutine as each root has its own depth
+			searchDepth := STANDARD_DEPTH
 			if rootPath == f.UserPaths.PreferencesPath {
 				searchDepth = PREFERENCES_DEPTH
-			} else {
-				searchDepth = STANDARD_DEPTH
 			}
 
 			// Create context struct for passing context to other functions
