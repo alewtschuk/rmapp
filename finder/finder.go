@@ -14,10 +14,6 @@ import (
 const (
 	STANDARD_DEPTH    int = 1
 	PREFERENCES_DEPTH int = 2
-
-	// Directory reads contend on shared kernel locks, past a few concurrent
-	// readers they slow each other down. See BenchmarkFindMatchesWorkers
-	DEFAULT_WORKERS int = 4
 )
 
 // ScanContext encapsulates all info needed during directory walking
@@ -42,7 +38,6 @@ type Finder struct {
 	MatchedPaths []string
 	Verbosity    bool
 	Reported     bool
-	Workers      int // number of roots scanned concurrently, DEFAULT_WORKERS if unset
 }
 
 // The default os directories where the .app file should exist
@@ -206,29 +201,36 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 		searchPaths = []string{f.OSMain.RootApplicationsPath, f.OSMain.UserApplicationsPath}
 	}
 
-	workers := f.Workers
-	if workers <= 0 {
-		workers = DEFAULT_WORKERS
-	}
-
-	// Feed roots to a bounded pool of workers rather than a goroutine per root
-	rootsChan := make(chan string)
-	go func() {
-		for _, rootPath := range searchPaths {
-			rootsChan <- rootPath
-		}
-		close(rootsChan)
-	}()
-
-	for range workers {
+	for _, rootPath := range searchPaths {
 		wg.Add(1)
 
-		go func() {
+		go func(rootPath string) {
 			defer wg.Done()
-			for rootPath := range rootsChan {
-				f.scanRoot(rootPath, appName, bundleID, tokenizedApp, matchesChan, opts)
+			// Declared per goroutine as each root has its own depth
+			searchDepth := STANDARD_DEPTH
+			if rootPath == f.UserPaths.PreferencesPath {
+				searchDepth = PREFERENCES_DEPTH
 			}
-		}()
+
+			// Create context struct for passing context to other functions
+			ctx := ScanContext{
+				AppName:      appName,
+				BundleID:     bundleID,
+				DomainHint:   GetDomainHint(bundleID),
+				SearchDepth:  searchDepth,
+				MatchesChan:  matchesChan,
+				RootPath:     rootPath,
+				TokenizedApp: tokenizedApp,
+				LpsArray:     buildLPS(tokenizedApp),
+			}
+
+			// Check if root Applications directories hold the .app
+			if rootPath == f.OSMain.RootApplicationsPath || rootPath == f.OSMain.UserApplicationsPath {
+				f.FindApp(rootPath, ctx)
+				return
+			}
+			f.FindAppFiles(rootPath, ctx, opts)
+		}(rootPath)
 	}
 
 	// Go routine to close the channel
@@ -247,31 +249,4 @@ func (f *Finder) FindMatches(appName, bundleID string, opts options.Options) ([]
 	}
 
 	return matches, err
-}
-
-// Scans a single root path for matches, sending them to matchesChan
-func (f *Finder) scanRoot(rootPath, appName, bundleID string, tokenizedApp []string, matchesChan chan string, opts options.Options) {
-	searchDepth := STANDARD_DEPTH
-	if rootPath == f.UserPaths.PreferencesPath {
-		searchDepth = PREFERENCES_DEPTH
-	}
-
-	// Create context struct for passing context to other functions
-	ctx := ScanContext{
-		AppName:      appName,
-		BundleID:     bundleID,
-		DomainHint:   GetDomainHint(bundleID),
-		SearchDepth:  searchDepth,
-		MatchesChan:  matchesChan,
-		RootPath:     rootPath,
-		TokenizedApp: tokenizedApp,
-		LpsArray:     buildLPS(tokenizedApp),
-	}
-
-	// Check if root Applications directories hold the .app
-	if rootPath == f.OSMain.RootApplicationsPath || rootPath == f.OSMain.UserApplicationsPath {
-		f.FindApp(rootPath, ctx)
-		return
-	}
-	f.FindAppFiles(rootPath, ctx, opts)
 }
